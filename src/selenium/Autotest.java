@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
 import org.json.simple.JSONObject;
@@ -43,13 +44,10 @@ public class Autotest {
         		"/usr/local/Cellar/chromedriver/2.29/bin/chromedriver");
         System.setProperty("webdriver.chrome.logfile", "/Users/thao786/log");
         
-		int test_id = 39;
+		int test_id = 42;
 		ResultSet result = null;
 		Statement statement = null;
 		int lastestOrder = 0;
-		
-		// chrome_tab => webDriver
-		HashMap<String, WebDriver> driverMap = new HashMap<String, WebDriver>();
 		
 		try {
 			Class.forName("com.mysql.jdbc.Driver").newInstance();
@@ -62,31 +60,22 @@ public class Autotest {
 	        System.out.println(e.getMessage());
 	    }
 		
+    	DesiredCapabilities cap = DesiredCapabilities.chrome();
+		LoggingPreferences pref = new LoggingPreferences();
+		pref.enable(LogType.BROWSER, Level.ALL);
+		cap.setCapability(CapabilityType.LOGGING_PREFS, pref);
+		WebDriver driver = new ChromeDriver(cap);    	
+		JavascriptExecutor jse = (JavascriptExecutor)driver;
+		// check if page contains JQuery, otherwise insert
+		
 	    while(result.next()) {
 	    	int order = Integer.parseInt(result.getString("order"));
 	    	String action_type = result.getString("action_type");
-	    	String chrome_tab = result.getString("chrome_tab");
 	    	String webpage = result.getString("webpage");
 	    	int scrollLeft, scrollTop, wait = Integer.parseInt(result.getString("wait"));
 	    	String selectorJSON;
 	    	
-	    	WebDriver driver = null;
-	    	JavascriptExecutor jse = null;
-	    	
-	    	if (driverMap.containsKey(chrome_tab)) {
-	    		driver = driverMap.get(chrome_tab);
-    	    } else {
-    	    	DesiredCapabilities cap = DesiredCapabilities.chrome();
-    			LoggingPreferences pref = new LoggingPreferences();
-    			pref.enable(LogType.BROWSER, Level.ALL);
-    			cap.setCapability(CapabilityType.LOGGING_PREFS, pref);
-    	       
-    	        driver = new ChromeDriver(cap);
-    	    	driverMap.put(chrome_tab, driver);
-    	    	// first step in a new tab must be a pageload
-    	    }
-	    	
-	    	jse = (JavascriptExecutor)driver;
+	    	TimeUnit.SECONDS.sleep(4);
 	    	
 	    	switch (action_type) {
 	            case "pageload":
@@ -112,7 +101,7 @@ public class Autotest {
 	        		JSONObject json = (JSONObject) parser.parse(selectorJSON);
 	        		String selectorType = (String) json.get("selectorType");
 	        		String selector = (String) json.get("selector");
-	        		int eq = (int) json.get("eq");
+	        		int eq = Integer.parseInt(json.get("eq") + "");
 	        		WebElement element = null;
 	        		
 	        		switch (selectorType) {
@@ -136,8 +125,9 @@ public class Autotest {
 		                				(By.cssSelector("a[href='" + selector + "']")).get(eq);
 		                	break;
 		                case "button":  
-		                	element = driver.findElements
-            							(By.cssSelector("button:contains('" + selector + "')")).get(eq);		                	break;
+		                	element = (WebElement) ((JavascriptExecutor)driver)
+		                		.executeScript("return $('button:contains(\"" + selector + "\")')[0]");
+		                	break;
 		                case "css": 
 		                	element = driver.findElements(By.cssSelector(selector)).get(eq);
 		                	break;
