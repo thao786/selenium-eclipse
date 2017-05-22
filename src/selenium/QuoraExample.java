@@ -12,6 +12,7 @@ import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.interactions.Actions;
 //import org.openqa.selenium.firefox.FirefoxDriver;
 //import org.openqa.selenium.firefox.FirefoxProfile;
 import org.openqa.selenium.logging.LogEntries;
@@ -30,7 +31,7 @@ import com.mysql.jdbc.Connection;
 import com.mysql.jdbc.Statement;
  
 
-public class ChromeExample  {
+public class QuoraExample  {
     public static void getConsole(WebDriver driver) {
         LogEntries jserrors = driver.manage().logs().get(LogType.BROWSER);
         for (LogEntry error : jserrors) {
@@ -53,28 +54,14 @@ public class ChromeExample  {
         WebDriver driver = new ChromeDriver(cap);
         JavascriptExecutor jse = (JavascriptExecutor)driver;
         driver.manage().window().setSize(new Dimension(1000, 700));
-        driver.get("http://learncloud.rumie.org/search");
+        driver.get("https://www.quora.com");
          
         System.out.println("Page title is: " + driver.getTitle());
         
-        Boolean return_value = (Boolean)jse.executeScript("return $('.colblock').length >= 30");
-        System.out.println(return_value);
+        Actions action = new Actions(driver);
+        action.sendKeys("cheese");
+        action.perform();
          
-//        WebElement element = driver.findElements(By.className("colblock")).get(2);
-//        element.click();
-//        ChromeExample.getConsole(driver);
-//        System.out.println(driver.findElements(By.tagName("body")).get(0).getText());
-         
-        Thread.sleep(4000);
-        ChromeExample.getConsole(driver);
-        
-        WebDriver driver2 = new ChromeDriver(cap);
-        driver2.manage().window().setSize(new Dimension(1000, 700));
-        driver2.get("http://dev.rumie.org/app_dev.php/user/getapikey?"+
-        		"username=thao@rumie.org&password=fall2010");
-        System.out.println(driver2.findElements(By.tagName("body")).get(0).getText());
-                 
-        
 //        driver.quit();
     }
 }
