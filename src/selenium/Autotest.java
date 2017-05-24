@@ -55,8 +55,7 @@ public class Autotest {
 			statement = (Statement) connection.createStatement();
 			result = statement.executeQuery("Select * FROM steps s WHERE s.test_id="+test_id
 			+ " AND s.active = true");
-		}
-	    catch ( SQLException e ) {
+		} catch ( SQLException e ) {
 	        System.out.println(e.getMessage());
 	    }
 		
@@ -64,7 +63,7 @@ public class Autotest {
 		LoggingPreferences pref = new LoggingPreferences();
 		pref.enable(LogType.BROWSER, Level.ALL);
 		cap.setCapability(CapabilityType.LOGGING_PREFS, pref);
-		WebDriver driver = new ChromeDriver(cap);    	
+		WebDriver driver = new ChromeDriver(cap);
 		JavascriptExecutor jse = (JavascriptExecutor)driver;
 		// check if page contains JQuery, otherwise insert
 		
@@ -75,14 +74,16 @@ public class Autotest {
 	    	int scrollLeft, scrollTop, wait = Integer.parseInt(result.getString("wait"));
 	    	String selectorJSON;
 	    	
-	    	TimeUnit.SECONDS.sleep(4);
+	    	TimeUnit.MILLISECONDS.sleep(wait);
 	    	
 	    	switch (action_type) {
 	            case "pageload":
-	            	driver.get(webpage);
-	            	driver.manage().window().setSize(new Dimension(
-	    	        		Integer.parseInt(result.getString("screenwidth")), 
-	    	        		Integer.parseInt(result.getString("screenheight"))));
+	            	if (driver.getCurrentUrl() != webpage) {
+	            		driver.get(webpage);
+		            	driver.manage().window().setSize(new Dimension(
+		    	        		Integer.parseInt(result.getString("screenwidth")), 
+		    	        		Integer.parseInt(result.getString("screenheight"))));
+	            	}
 	            	break;
 	            case "scroll":
 	            	scrollLeft = Integer.parseInt(result.getString("scrollLeft"));
@@ -124,7 +125,7 @@ public class Autotest {
 		                	element = driver.findElements
 		                				(By.cssSelector("a[href='" + selector + "']")).get(eq);
 		                	break;
-		                case "button":  
+		                case "button":
 		                	element = (WebElement) ((JavascriptExecutor)driver)
 		                		.executeScript("return $('button:contains(\"" + selector + "\")')[0]");
 		                	break;

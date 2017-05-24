@@ -1,14 +1,16 @@
 package selenium;
 
 import java.io.IOException;
-
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
  
 import org.openqa.selenium.By;
 import org.openqa.selenium.Dimension;
 import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.Keys;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
@@ -30,15 +32,7 @@ import java.sql.SQLException;
 import com.mysql.jdbc.Connection;
 import com.mysql.jdbc.Statement;
  
-
-public class QuoraExample  {
-    public static void getConsole(WebDriver driver) {
-        LogEntries jserrors = driver.manage().logs().get(LogType.BROWSER);
-        for (LogEntry error : jserrors) {
-            System.out.println(error.getMessage());
-        }
-    }
-     
+public class MultipleTabs  {
     public static void main(String[] args) throws Exception {
         System.setProperty("webdriver.chrome.driver", 
         		"/usr/local/Cellar/chromedriver/2.29/bin/chromedriver");
@@ -53,14 +47,14 @@ public class QuoraExample  {
        
         WebDriver driver = new ChromeDriver(cap);
         JavascriptExecutor jse = (JavascriptExecutor)driver;
-        driver.manage().window().setSize(new Dimension(1000, 700));
         driver.get("https://www.quora.com");
-         
         System.out.println("Page title is: " + driver.getTitle());
         
-        Actions action = new Actions(driver);
-        action.sendKeys("cheese");
-        action.perform();
+        WebElement element = (WebElement) ((JavascriptExecutor)driver)
+        		.executeScript("window.open('https://www.google.com');");
+
+        List tabs = new ArrayList(driver.getWindowHandles());
+        driver.switchTo().window((String) tabs.get(1));
          
 //        driver.quit();
     }
