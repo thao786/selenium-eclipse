@@ -38,6 +38,8 @@ public class Autotest {
 	static String url = "jdbc:mysql://localhost:3306/autotest?user=root&password=root";
 	static String login = "root";
 	static String password = "root";
+	static HashMap<String, Integer> tabs;
+	static int tabCount = 0;
 
 	public static void main(String[] args) throws Exception {
 		System.setProperty("webdriver.chrome.driver", 
@@ -48,6 +50,7 @@ public class Autotest {
 		ResultSet result = null;
 		Statement statement = null;
 		int lastestOrder = 0;
+		tabs = new HashMap<String, Integer>(); // chromeTabWindow => DriverTabId
 		
 		try {
 			Class.forName("com.mysql.jdbc.Driver").newInstance();
@@ -73,16 +76,28 @@ public class Autotest {
 	    	String webpage = result.getString("webpage");
 	    	int scrollLeft, scrollTop, wait = Integer.parseInt(result.getString("wait"));
 	    	String selectorJSON;
+	    	String chromeTabWindow = result.getString("tabId") + "-" +result.getString("windowId");
 	    	
 	    	TimeUnit.MILLISECONDS.sleep(wait);
 	    	
 	    	switch (action_type) {
 	            case "pageload":
-	            	if (driver.getCurrentUrl() != webpage) {
+	            	if (tabCount == 0 || driver.getCurrentUrl() != webpage) {
 	            		driver.get(webpage);
 		            	driver.manage().window().setSize(new Dimension(
 		    	        		Integer.parseInt(result.getString("screenwidth")), 
 		    	        		Integer.parseInt(result.getString("screenheight"))));
+		            	
+		            	if (tabCount == 0)
+		            		tabs.put(chromeTabWindow, 0);
+		            	
+		            	tabCount++;
+	            	} else { // open new tab
+	            		WebElement dummy = (WebElement) ((JavascriptExecutor)driver)
+	                    		.executeScript("window.open('" + webpage + "');");
+	            		tabs.put(chromeTabWindow, tabCount);
+	            		driver.switchTo().window(tabCount + "");
+	            		tabCount++;
 	            	}
 	            	break;
 	            case "scroll":

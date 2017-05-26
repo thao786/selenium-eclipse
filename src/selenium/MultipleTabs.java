@@ -33,7 +33,7 @@ import com.mysql.jdbc.Connection;
 import com.mysql.jdbc.Statement;
  
 public class MultipleTabs  {
-    public static void main(String[] args) throws Exception {
+	public static void main(String[] args) throws Exception {
         System.setProperty("webdriver.chrome.driver", 
         		"/usr/local/Cellar/chromedriver/2.29/bin/chromedriver");
         System.setProperty("webdriver.chrome.logfile", "/Users/thao786/log");
@@ -54,7 +54,13 @@ public class MultipleTabs  {
         		.executeScript("window.open('https://www.google.com');");
 
         List tabs = new ArrayList(driver.getWindowHandles());
+        TimeUnit.MILLISECONDS.sleep(1000);
+        element = (WebElement) ((JavascriptExecutor)driver)
+        		.executeScript("window.open('https://www.reddit.com');");
+        
+        // 0 quora, 1 google, 2 reddit
         driver.switchTo().window((String) tabs.get(1));
+        
          
 //        driver.quit();
     }
