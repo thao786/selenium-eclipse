@@ -38,27 +38,36 @@ public class Autotest {
 	static String url = "jdbc:mysql://localhost:3306/autotest?user=root&password=root";
 	static String login = "root";
 	static String password = "root";
-	static HashMap<String, Integer> tabs;
-	static int tabCount = 0;
+	public WebDriver driver;
+	
+	public boolean switchTab(String url) {
+		ArrayList<String> tabs = new ArrayList<String>(driver.getWindowHandles());
+        for (int i = 0; i< tabs.size(); i++) {
+        	driver.switchTo().window((String) tabs.get(i));
+			if (url == driver.getCurrentUrl()) // how to check for new tab? not match http or ftp
+				return true;
+		}
+		return false;
+	}
 
 	public static void main(String[] args) throws Exception {
-		System.setProperty("webdriver.chrome.driver", 
+		System.setProperty("webdriver.chrome.driver",
         		"/usr/local/Cellar/chromedriver/2.29/bin/chromedriver");
         System.setProperty("webdriver.chrome.logfile", "/Users/thao786/log");
         
+        Autotest autoTest = new Autotest();
 		int test_id = 42;
 		ResultSet result = null;
 		Statement statement = null;
-		int lastestOrder = 0;
-		tabs = new HashMap<String, Integer>(); // chromeTabWindow => DriverTabId
+		ArrayList<String> chromeTabs = new ArrayList<String>();
 		
 		try {
 			Class.forName("com.mysql.jdbc.Driver").newInstance();
 			Connection connection = (Connection) DriverManager.getConnection(url, login, password);
 			statement = (Statement) connection.createStatement();
-			result = statement.executeQuery("Select * FROM steps s WHERE s.test_id="+test_id
+			result = statement.executeQuery("Select * FROM steps s WHERE s.test_id=" + test_id
 			+ " AND s.active = true");
-		} catch ( SQLException e ) {
+		} catch (SQLException e) {
 	        System.out.println(e.getMessage());
 	    }
 		
@@ -66,8 +75,8 @@ public class Autotest {
 		LoggingPreferences pref = new LoggingPreferences();
 		pref.enable(LogType.BROWSER, Level.ALL);
 		cap.setCapability(CapabilityType.LOGGING_PREFS, pref);
-		WebDriver driver = new ChromeDriver(cap);
-		JavascriptExecutor jse = (JavascriptExecutor)driver;
+		autoTest.driver = new ChromeDriver(cap);
+		JavascriptExecutor jse = (JavascriptExecutor)autoTest.driver;
 		// check if page contains JQuery, otherwise insert
 		
 	    while(result.next()) {
@@ -76,28 +85,34 @@ public class Autotest {
 	    	String webpage = result.getString("webpage");
 	    	int scrollLeft, scrollTop, wait = Integer.parseInt(result.getString("wait"));
 	    	String selectorJSON;
-	    	String chromeTabWindow = result.getString("tabId") + "-" +result.getString("windowId");
 	    	
+	    	String chromeTabWindow = result.getString("tabId") + "-" + result.getString("windowId");
+	    	// check if we need to switch tab
+	    	// only compare root urls (non anchor link)
+	    	if (autoTest.driver.getCurrentUrl() != webpage) {
+	    		// if this chrome tab never appears before, open a new tab and switch to it
+	    		if (!chromeTabs.contains(chromeTabWindow)) {
+	    			WebElement element = (WebElement) ((JavascriptExecutor)autoTest.driver)
+	    	        		.executeScript("window.open('');");
+	    			autoTest.switchTab("about:blank"); // Chrome only
+	    		} else {
+	    			// if we have this tab already, check all tabs, find the first page with this url
+		    		// if find none: if this is not a pageload, throw error, not found such url
+	    			 if (!autoTest.switchTab(webpage)) {
+	    				 System.out.println("Cant find tab with url " + webpage);
+	    				 return;
+	    			 }
+	    		}
+        	}
+	    	chromeTabs.add(chromeTabWindow);
 	    	TimeUnit.MILLISECONDS.sleep(wait);
 	    	
 	    	switch (action_type) {
 	            case "pageload":
-	            	if (tabCount == 0 || driver.getCurrentUrl() != webpage) {
-	            		driver.get(webpage);
-		            	driver.manage().window().setSize(new Dimension(
-		    	        		Integer.parseInt(result.getString("screenwidth")), 
-		    	        		Integer.parseInt(result.getString("screenheight"))));
-		            	
-		            	if (tabCount == 0)
-		            		tabs.put(chromeTabWindow, 0);
-		            	
-		            	tabCount++;
-	            	} else { // open new tab
-	            		WebElement dummy = (WebElement) ((JavascriptExecutor)driver)
-	                    		.executeScript("window.open('" + webpage + "');");
-	            		tabs.put(chromeTabWindow, tabCount);
-	            		driver.switchTo().window(tabCount + "");
-	            		tabCount++;
+	            	// only load new webpage if we dont have it yet
+	            	// pageload could result from a link click (no actual reload in this case)
+	            	if (autoTest.driver.getCurrentUrl() != webpage) {
+	            		autoTest.driver.get(webpage);
 	            	}
 	            	break;
 	            case "scroll":
@@ -107,7 +122,7 @@ public class Autotest {
 	            	break;
 	            case "keypress":
 	            	String typed = result.getString("typed");
-	            	Actions action = new Actions(driver);
+	            	Actions action = new Actions(autoTest.driver);
 	                action.sendKeys(typed);
 	                action.perform();
 	            	break;
@@ -122,36 +137,36 @@ public class Autotest {
 	        		
 	        		switch (selectorType) {
 		                case "id":
-		                	element = driver.findElement(By.id(selector));
+		                	element = autoTest.driver.findElement(By.id(selector));
 		                	break;
 		                case "class":  
-		                	element = driver.findElements(By.className(selector)).get(eq);
+		                	element = autoTest.driver.findElements(By.className(selector)).get(eq);
 		                	break;
-		                case "tag":  
-		                	element = driver.findElements(By.tagName(selector)).get(eq);
+		                case "tag":
+		                	element = autoTest.driver.findElements(By.tagName(selector)).get(eq);
 		                	break;
 		                case "name":  
-		                	element = driver.findElements(By.name(selector)).get(eq);
+		                	element = autoTest.driver.findElements(By.name(selector)).get(eq);
 		                	break;
 		                case "partialLink": 
-		                	element = driver.findElements(By.partialLinkText(selector)).get(eq);
+		                	element = autoTest.driver.findElements(By.partialLinkText(selector)).get(eq);
 		                	break;
 		                case "href":  
-		                	element = driver.findElements
+		                	element = autoTest.driver.findElements
 		                				(By.cssSelector("a[href='" + selector + "']")).get(eq);
 		                	break;
 		                case "button":
-		                	element = (WebElement) ((JavascriptExecutor)driver)
+		                	element = (WebElement) ((JavascriptExecutor)autoTest.driver)
 		                		.executeScript("return $('button:contains(\"" + selector + "\")')[0]");
 		                	break;
-		                case "css": 
-		                	element = driver.findElements(By.cssSelector(selector)).get(eq);
+		                case "css":
+		                	element = autoTest.driver.findElements(By.cssSelector(selector)).get(eq);
 		                	break;
-		                case "coordination":  
+		                case "coordination":
 		                	int x = (int) json.get("x");
 		                	int y = (int) json.get("y");
-		                	WebElement dummy = driver.findElement(By.id("foo"));
-		                	Actions act = new Actions(driver);
+		                	WebElement dummy = autoTest.driver.findElement(By.id("foo"));
+		                	Actions act = new Actions(autoTest.driver);
 		                    act.moveToElement(dummy).moveByOffset(x, y).click().perform();
 		                	break;
 		                default: break;

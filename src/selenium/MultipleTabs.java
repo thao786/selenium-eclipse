@@ -6,7 +6,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
- 
+
+import org.apache.commons.logging.Log;
 import org.openqa.selenium.By;
 import org.openqa.selenium.Dimension;
 import org.openqa.selenium.JavascriptExecutor;
@@ -33,6 +34,13 @@ import com.mysql.jdbc.Connection;
 import com.mysql.jdbc.Statement;
  
 public class MultipleTabs  {
+	public static void printTabs(List tabs) {
+		int i;
+		for (i = 0; i< tabs.size(); i++) {
+			System.out.println(i + " " + tabs.get(i));
+		}
+	}
+	
 	public static void main(String[] args) throws Exception {
         System.setProperty("webdriver.chrome.driver", 
         		"/usr/local/Cellar/chromedriver/2.29/bin/chromedriver");
@@ -47,21 +55,26 @@ public class MultipleTabs  {
        
         WebDriver driver = new ChromeDriver(cap);
         JavascriptExecutor jse = (JavascriptExecutor)driver;
-        driver.get("https://www.quora.com");
+        driver.get("http://guides.rubyonrails.org/");
         System.out.println("Page title is: " + driver.getTitle());
         
         WebElement element = (WebElement) ((JavascriptExecutor)driver)
         		.executeScript("window.open('https://www.google.com');");
-
-        List tabs = new ArrayList(driver.getWindowHandles());
+        
         TimeUnit.MILLISECONDS.sleep(1000);
         element = (WebElement) ((JavascriptExecutor)driver)
         		.executeScript("window.open('https://www.reddit.com');");
+        element = (WebElement) ((JavascriptExecutor)driver)
+        		.executeScript("window.open('');");
         
-        // 0 quora, 1 google, 2 reddit
+        // 0 rails, 1 google, 2 reddit, 3 dummy
+        List tabs = new ArrayList(driver.getWindowHandles());
         driver.switchTo().window((String) tabs.get(1));
-        
-         
+        for (int i = 0; i< tabs.size(); i++) {
+        	driver.switchTo().window((String) tabs.get(i));
+			System.out.println(i + " " + driver.getCurrentUrl());
+		}
+                 
 //        driver.quit();
     }
 }
