@@ -1,5 +1,6 @@
 package selenium;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
@@ -7,11 +8,14 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.logging.Log;
 import org.openqa.selenium.By;
 import org.openqa.selenium.Dimension;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.Keys;
+import org.openqa.selenium.OutputType;
+import org.openqa.selenium.TakesScreenshot;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
@@ -74,6 +78,11 @@ public class MultipleTabs  {
         	driver.switchTo().window((String) tabs.get(i));
 			System.out.println(i + " " + driver.getCurrentUrl());
 		}
+        
+        TakesScreenshot scrShot =((TakesScreenshot)driver);
+        File SrcFile=scrShot.getScreenshotAs(OutputType.FILE);
+        File DestFile=new File("/Users/thao786/a.jpg");
+        FileUtils.copyFile(SrcFile, DestFile);
                  
 //        driver.quit();
     }

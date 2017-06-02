@@ -4,7 +4,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
@@ -59,7 +61,7 @@ public class Autotest {
 		int test_id = 42;
 		ResultSet result = null;
 		Statement statement = null;
-		ArrayList<String> chromeTabs = new ArrayList<String>();
+		Set<String> chromeTabs = new HashSet<>();
 		
 		try {
 			Class.forName("com.mysql.jdbc.Driver").newInstance();
@@ -184,7 +186,7 @@ public class Autotest {
 	      }
 	    
 	    // check assertions
-//	    result = statement.executeQuery("Select * FROM assertions a WHERE a.test_id="+test_id
+//	    result = statement.executeQuery("Select * FROM assertions a WHERE a.test_id=" + test_id
 //				+ " AND a.active = true");
 	    
 	}
