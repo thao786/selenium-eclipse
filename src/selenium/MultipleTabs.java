@@ -46,7 +46,7 @@ public class MultipleTabs  {
 	}
 	
 	public static void main(String[] args) throws Exception {
-        System.setProperty("webdriver.chrome.driver", 
+        System.setProperty("webdriver.chrome.driver",
         		"/usr/local/Cellar/chromedriver/2.29/bin/chromedriver");
         System.setProperty("webdriver.chrome.logfile", "/Users/thao786/log");
         DesiredCapabilities cap = DesiredCapabilities.chrome();
@@ -72,7 +72,7 @@ public class MultipleTabs  {
         		.executeScript("window.open('');");
         
         // 0 rails, 1 google, 2 reddit, 3 dummy
-        List tabs = new ArrayList(driver.getWindowHandles());
+        ArrayList<String> tabs = new ArrayList<String>(driver.getWindowHandles());
         driver.switchTo().window((String) tabs.get(1));
         for (int i = 0; i< tabs.size(); i++) {
         	driver.switchTo().window((String) tabs.get(i));
