@@ -189,11 +189,13 @@ public class Autotest {
 	            	break;
 	        }
 	    	
-	    	TakesScreenshot scrShot =((TakesScreenshot)autoTest.driver);
+	    	TakesScreenshot scrShot = ((TakesScreenshot)autoTest.driver);
 	        File SrcFile = scrShot.getScreenshotAs(OutputType.FILE);
-	        File DestFile = new File("/Users/thao786/"+ test_id +"-" + runId + "-"+ order + "a.jpg");
+	        String awsFileName = test_id +"-" + runId + "-"+ order + "a.jpg";
 	        // copy file to S3
-	        FileUtils.copyFile(SrcFile, DestFile);
+			Runtime.getRuntime().exec("/usr/local/bin/aws s3 cp " 
+					+ SrcFile.getAbsolutePath()
+					+ " s3://autotest-test/" + awsFileName);
 	        // delete file on server
 	      }
 	    
