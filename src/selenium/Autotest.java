@@ -35,24 +35,34 @@ import org.openqa.selenium.support.ui.ExpectedCondition;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import com.mysql.jdbc.Connection;
 import com.mysql.jdbc.Statement;
 
 public class Autotest {
-	static String url = "jdbc:mysql://localhost:3306/autotest?user=root&password=root";
-	static String login = "root";
-	static String password = "root";
 	public WebDriver driver;
 	
 	public boolean switchTab(String url) {
 		ArrayList<String> tabs = new ArrayList<String>(driver.getWindowHandles());
         for (int i = 0; i< tabs.size(); i++) {
+        	System.out.println(driver.getCurrentUrl());
         	driver.switchTo().window((String) tabs.get(i));
 			if (url == driver.getCurrentUrl()) // how to check for new tab? not match http or ftp
 				return true;
 		}
+		return false;
+	}
+	
+	public static boolean isBlank(String url) {
+		ArrayList<String> emptyUrls = new ArrayList<String>();
+		emptyUrls.add("");
+		emptyUrls.add("about:blank");
+		emptyUrls.add("data:,");
+		if (emptyUrls.contains(url))
+			return true;
+		
 		return false;
 	}
 
@@ -62,22 +72,17 @@ public class Autotest {
         System.setProperty("webdriver.chrome.logfile", "/Users/thao786/log");
         
         Autotest autoTest = new Autotest();
-		int test_id = 42;
+		int test_id = 1;
 		String runId = "runId";
-		ResultSet result = null;
-		Statement statement = null;
 		Set<String> chromeTabs = new HashSet<>();
 		
-		try {
-			Class.forName("com.mysql.jdbc.Driver").newInstance();
-			Connection connection = (Connection) DriverManager.getConnection(url, login, password);
-			statement = (Statement) connection.createStatement();
-			result = statement.executeQuery("Select * FROM steps s WHERE s.test_id=" + test_id
-			+ " AND s.active = true");
-		} catch (SQLException e) {
-	        System.out.println(e.getMessage());
-	    }
-		
+		Class.forName("com.mysql.jdbc.Driver").newInstance();
+		Connection connection = (Connection) DriverManager
+				.getConnection(config.url(), config.login(), config.password());
+		Statement selectStm = (Statement) connection.createStatement();
+		ResultSet result = selectStm.executeQuery("Select * FROM steps s WHERE s.test_id=" + test_id
+		+ " AND s.active = true");
+				
     	DesiredCapabilities cap = DesiredCapabilities.chrome();
 		LoggingPreferences pref = new LoggingPreferences();
 		pref.enable(LogType.BROWSER, Level.ALL);
@@ -88,6 +93,7 @@ public class Autotest {
 		
 	    while(result.next()) {
 	    	int order = Integer.parseInt(result.getString("order"));
+	    	int step_id = Integer.parseInt(result.getString("id"));
 	    	String action_type = result.getString("action_type");
 	    	String webpage = result.getString("webpage");
 	    	int scrollLeft, scrollTop, wait = Integer.parseInt(result.getString("wait"));
@@ -96,112 +102,125 @@ public class Autotest {
 	    	String chromeTabWindow = result.getString("tabId") + "-" + result.getString("windowId");
 	    	// check if we need to switch tab
 	    	// only compare root urls (non anchor link)
-	    	if (autoTest.driver.getCurrentUrl() != webpage) {
-	    		// if this chrome tab never appears before, open a new tab and switch to it
-	    		if (!chromeTabs.contains(chromeTabWindow)) {
-	    			WebElement element = (WebElement) ((JavascriptExecutor)autoTest.driver)
-	    	        		.executeScript("window.open('');");
-	    			autoTest.switchTab("about:blank"); // Chrome only
-	    		} else {
-	    			// if we have this tab already, check all tabs, find the first page with this url
-		    		// if find none: if this is not a pageload, throw error, not found such url
-	    			 if (!autoTest.switchTab(webpage)) {
-	    				 System.out.println("Cant find tab with url " + webpage);
-	    				 return;
-	    			 }
-	    		}
+	    	String currentUrl = autoTest.driver.getCurrentUrl();
+	    	if (!isBlank(currentUrl)) {
+	    		if (!currentUrl.equals(webpage)) {
+	    			// if this chrome tab never appears before, open a new tab and switch to it
+		    		if (!chromeTabs.contains(chromeTabWindow)) {
+		    			WebElement element = (WebElement) ((JavascriptExecutor)autoTest.driver)
+		    	        		.executeScript("window.open('');");
+		    			autoTest.switchTab("about:blank"); // Chrome only
+		    		} else {
+		    			// if we have this tab already, check all tabs, find the first page with this url
+			    		// if find none: if this is not a pageload, throw error, not found such url
+		    			 if (!autoTest.switchTab(webpage)) {
+		    				 System.out.println("Cant find tab with url " + webpage);
+		    				 return;
+		    			 }
+		    		}
+	    		}	    		
         	}
 	    	chromeTabs.add(chromeTabWindow);
 	    	TimeUnit.MILLISECONDS.sleep(wait);
 	    	
-	    	switch (action_type) {
-	            case "pageload":
-	            	// only load new webpage if we dont have it yet
-	            	// pageload could result from a link click (no actual reload in this case)
-	            	if (autoTest.driver.getCurrentUrl() != webpage) {
-	            		autoTest.driver.get(webpage);
-	            	}
-	            	break;
-	            case "scroll":
-	            	scrollLeft = Integer.parseInt(result.getString("scrollLeft"));
-	            	scrollTop = Integer.parseInt(result.getString("scrollTop"));
-	            	jse.executeScript("scroll("+ scrollLeft +", "+ scrollTop +")");
-	            	break;
-	            case "keypress":
-	            	String typed = result.getString("typed");
-	            	Actions action = new Actions(autoTest.driver);
-	                action.sendKeys(typed);
-	                action.perform();
-	            	break;
-	            case "click":
-	            	selectorJSON = result.getString("selector"); // in json format
-	            	JSONParser parser = new JSONParser();
-	        		JSONObject json = (JSONObject) parser.parse(selectorJSON);
-	        		String selectorType = (String) json.get("selectorType");
-	        		String selector = (String) json.get("selector");
-	        		int eq = Integer.parseInt(json.get("eq") + "");
-	        		WebElement element = null;
-	        		
-	        		switch (selectorType) {
-		                case "id":
-		                	element = autoTest.driver.findElement(By.id(selector));
-		                	break;
-		                case "class":  
-		                	element = autoTest.driver.findElements(By.className(selector)).get(eq);
-		                	break;
-		                case "tag":
-		                	element = autoTest.driver.findElements(By.tagName(selector)).get(eq);
-		                	break;
-		                case "name":  
-		                	element = autoTest.driver.findElements(By.name(selector)).get(eq);
-		                	break;
-		                case "partialLink": 
-		                	element = autoTest.driver.findElements(By.partialLinkText(selector)).get(eq);
-		                	break;
-		                case "href":  
-		                	element = autoTest.driver.findElements
-		                				(By.cssSelector("a[href='" + selector + "']")).get(eq);
-		                	break;
-		                case "button":
-		                	element = (WebElement) ((JavascriptExecutor)autoTest.driver)
-		                		.executeScript("return $('button:contains(\"" + selector + "\")')[0]");
-		                	break;
-		                case "css":
-		                	element = autoTest.driver.findElements(By.cssSelector(selector)).get(eq);
-		                	break;
-		                case "coordination":
-		                	int x = (int) json.get("x");
-		                	int y = (int) json.get("y");
-		                	WebElement dummy = autoTest.driver.findElement(By.id("foo"));
-		                	Actions act = new Actions(autoTest.driver);
-		                    act.moveToElement(dummy).moveByOffset(x, y).click().perform();
-		                	break;
-		                default: break;
-	        		}
-	        		
-	        		if (element != null)
-	        			element.click();
-	        		
-	            	break;
-	            case "resize":
-	            	break;
-	            default:
-	            	break;
-	        }
+	    	try {
+		    	switch (action_type) {
+		            case "pageload":
+		            	// only load new webpage if we dont have it yet
+		            	// pageload could result from a link click (no actual reload in this case)
+		            	if (autoTest.driver.getCurrentUrl() != webpage) {
+		            		autoTest.driver.get(webpage);
+		            	}
+		            	break;
+		            case "scroll":
+		            	scrollLeft = Integer.parseInt(result.getString("scrollLeft"));
+		            	scrollTop = Integer.parseInt(result.getString("scrollTop"));
+		            	jse.executeScript("scroll("+ scrollLeft +", "+ scrollTop +")");
+		            	break;
+		            case "keypress":
+		            	String typed = result.getString("typed");
+		            	Actions action = new Actions(autoTest.driver);
+		                action.sendKeys(typed);
+		                action.perform();
+		            	break;
+		            case "click":
+		            	selectorJSON = result.getString("selector"); // in json format
+		            	JSONParser parser = new JSONParser();
+		        		JSONObject json = (JSONObject) parser.parse(selectorJSON);
+		        		String selectorType = (String) json.get("selectorType");
+		        		String selector = (String) json.get("selector");
+		        		int eq = Integer.parseInt(json.get("eq") + "");
+		        		WebElement element = null;
+		        		
+		        		switch (selectorType) {
+			                case "id":
+			                	element = autoTest.driver.findElement(By.id(selector));
+			                	break;
+			                case "class":  
+			                	element = autoTest.driver.findElements(By.className(selector)).get(eq);
+			                	break;
+			                case "tag":
+			                	element = autoTest.driver.findElements(By.tagName(selector)).get(eq);
+			                	break;
+			                case "name":  
+			                	element = autoTest.driver.findElements(By.name(selector)).get(eq);
+			                	break;
+			                case "partialLink": 
+			                	element = autoTest.driver.findElements(By.partialLinkText(selector)).get(eq);
+			                	break;
+			                case "href":  
+			                	element = autoTest.driver.findElements
+			                				(By.cssSelector("a[href='" + selector + "']")).get(eq);
+			                	break;
+			                case "button":
+			                	element = (WebElement) ((JavascriptExecutor)autoTest.driver)
+			                		.executeScript("return $('button:contains(\"" + selector + "\")')[0]");
+			                	break;
+			                case "css":
+			                	element = autoTest.driver.findElements(By.cssSelector(selector)).get(eq);
+			                	break;
+			                case "coordination":
+			                	int x = (int) json.get("x");
+			                	int y = (int) json.get("y");
+			                	WebElement dummy = autoTest.driver.findElement(By.id("foo"));
+			                	Actions act = new Actions(autoTest.driver);
+			                    act.moveToElement(dummy).moveByOffset(x, y).click().perform();
+			                	break;
+			                default: break;
+		        		}
+		        		
+		        		if (element != null)
+		        			element.click();
+		        		
+		            	break;
+		            case "resize":
+		            	break;
+		            default:
+		            	break;
+		        }
+	    	} catch (SQLException e) {
+		        Result fail = new Result(test_id, step_id, runId, e.getMessage());
+		        fail.sync();
+		        return;
+		    }
 	    	
 	    	TakesScreenshot scrShot = ((TakesScreenshot)autoTest.driver);
 	        File SrcFile = scrShot.getScreenshotAs(OutputType.FILE);
-	        String awsFileName = test_id +"-" + runId + "-"+ order + "a.jpg";
+	        String awsFileName = test_id +"-" + runId + "-"+ order + ".jpg";
 	        // copy file to S3
 			Runtime.getRuntime().exec("/usr/local/bin/aws s3 cp " 
 					+ SrcFile.getAbsolutePath()
 					+ " s3://autotest-test/" + awsFileName);
-	        // delete file on server
+			SrcFile.delete();	// delete file on server
 	      }
 	    
+	    // check default assertions: 
+	    // if all tabs return 200 
+	    // if ajax (console log) return 200
+	    
 	    // check assertions
-//	    result = statement.executeQuery("Select * FROM assertions a WHERE a.test_id=" + test_id
-//				+ " AND a.active = true");
+	    result = selectStm.executeQuery("Select * FROM assertions a WHERE a.test_id=" + 
+	    		test_id + " AND a.active = true");
 	    
 	}
 }
