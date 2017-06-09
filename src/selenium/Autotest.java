@@ -43,6 +43,14 @@ import com.mysql.jdbc.Statement;
 
 public class Autotest {
 	public WebDriver driver;
+	public static int AJAX_ASSERTION = 1;
+	public int test_id;
+	public String runId;
+	
+	public Autotest(int test, String runId) {
+		this.test_id = test;
+		this.runId = runId;
+	}
 	
 	public boolean switchTab(String url) {
 		ArrayList<String> tabs = new ArrayList<String>(driver.getWindowHandles());
@@ -66,22 +74,44 @@ public class Autotest {
 		return false;
 	}
 
+	public void screenShot(String awsFileName) throws IOException {
+		// check ENV
+		String awsPath = "/usr/local/bin/aws";
+		
+		TakesScreenshot scrShot = ((TakesScreenshot)driver);
+        File SrcFile = scrShot.getScreenshotAs(OutputType.FILE);
+        // copy file to S3
+		Runtime.getRuntime().exec(awsPath + " s3 cp " 
+				+ SrcFile.getAbsolutePath()
+				+ " s3://autotest-test/" + awsFileName);
+		SrcFile.delete();	// delete file on server
+	}
+	
+	public void checkLog() throws Exception {
+		LogEntries logs = driver.manage().logs().get(LogType.BROWSER);
+        for (LogEntry log : logs) {
+            String msg = log.getMessage();
+            if (msg.contains("Failed to load resource: the server responded with a status")) {
+            	Result fail = new Result(test_id, 0, runId, msg);
+		        fail.sync();
+            }
+        }
+	}
+	
 	public static void main(String[] args) throws Exception {
 		System.setProperty("webdriver.chrome.driver",
         		"/usr/local/Cellar/chromedriver/2.29/bin/chromedriver");
         System.setProperty("webdriver.chrome.logfile", "/Users/thao786/log");
         
-        Autotest autoTest = new Autotest();
-		int test_id = 1;
-		String runId = "runId";
+        Autotest autoTest = new Autotest(1, "runId");
 		Set<String> chromeTabs = new HashSet<>();
 		
 		Class.forName("com.mysql.jdbc.Driver").newInstance();
 		Connection connection = (Connection) DriverManager
 				.getConnection(config.url(), config.login(), config.password());
 		Statement selectStm = (Statement) connection.createStatement();
-		ResultSet result = selectStm.executeQuery("Select * FROM steps s WHERE s.test_id=" + test_id
-		+ " AND s.active = true");
+		ResultSet result = selectStm.executeQuery("Select * FROM steps s WHERE s.test_id=" 
+				+ autoTest.test_id + " AND s.active = true");
 				
     	DesiredCapabilities cap = DesiredCapabilities.chrome();
 		LoggingPreferences pref = new LoggingPreferences();
@@ -118,7 +148,7 @@ public class Autotest {
 		    				 return;
 		    			 }
 		    		}
-	    		}	    		
+	    		}
         	}
 	    	chromeTabs.add(chromeTabWindow);
 	    	TimeUnit.MILLISECONDS.sleep(wait);
@@ -199,28 +229,20 @@ public class Autotest {
 		            	break;
 		        }
 	    	} catch (SQLException e) {
-		        Result fail = new Result(test_id, step_id, runId, e.getMessage());
+		        Result fail = new Result(autoTest.test_id, step_id, autoTest.runId, e.getMessage());
 		        fail.sync();
 		        return;
 		    }
 	    	
-	    	TakesScreenshot scrShot = ((TakesScreenshot)autoTest.driver);
-	        File SrcFile = scrShot.getScreenshotAs(OutputType.FILE);
-	        String awsFileName = test_id +"-" + runId + "-"+ order + ".jpg";
-	        // copy file to S3
-			Runtime.getRuntime().exec("/usr/local/bin/aws s3 cp " 
-					+ SrcFile.getAbsolutePath()
-					+ " s3://autotest-test/" + awsFileName);
-			SrcFile.delete();	// delete file on server
+	    	autoTest.screenShot(autoTest.test_id +"-" + autoTest.runId + "-"+ order + ".jpg");
 	      }
 	    
 	    // check default assertions: 
-	    // if all tabs return 200 
-	    // if ajax (console log) return 200
+	    // if all tabs and ajax return 200 
 	    
 	    // check assertions
 	    result = selectStm.executeQuery("Select * FROM assertions a WHERE a.test_id=" + 
-	    		test_id + " AND a.active = true");
+	    		autoTest.test_id + " AND a.active = true");
 	    
 	}
 }

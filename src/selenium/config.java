@@ -8,6 +8,7 @@ public class config {
 	public static String url() {
 		return "jdbc:mysql://localhost:3306/autotest?user=root&password=root";
 	}
+	
 	public static String login() {
 		return "root";
 	}

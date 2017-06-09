@@ -53,12 +53,16 @@ public class ChromeExample  {
         WebDriver driver = new ChromeDriver(cap);
         JavascriptExecutor jse = (JavascriptExecutor)driver;
         driver.manage().window().setSize(new Dimension(1000, 700));
-        driver.get("http://learncloud.rumie.org/search");
-         
-        System.out.println("Page title is: " + driver.getTitle());
         
-        Boolean return_value = (Boolean)jse.executeScript("return $('.colblock').length >= 30");
-        System.out.println(return_value);
+        try {
+	        driver.get("http://dev.rumie.org/app_dev.php/search");	         
+	        System.out.println("Page title is: " + driver.getTitle());
+	        
+	        Boolean return_value = (Boolean)jse.executeScript("return $('.colblock').length >= 30");
+	        System.out.println(return_value);
+        } catch (Exception e) {
+	        
+	    }
          
 //        WebElement element = driver.findElements(By.className("colblock")).get(2);
 //        element.click();
@@ -68,11 +72,11 @@ public class ChromeExample  {
         Thread.sleep(4000);
         ChromeExample.getConsole(driver);
         
-        WebDriver driver2 = new ChromeDriver(cap);
-        driver2.manage().window().setSize(new Dimension(1000, 700));
-        driver2.get("http://dev.rumie.org/app_dev.php/user/getapikey?"+
-        		"username=thao@rumie.org&password=fall2010");
-        System.out.println(driver2.findElements(By.tagName("body")).get(0).getText());
+//        WebDriver driver2 = new ChromeDriver(cap);
+//        driver2.manage().window().setSize(new Dimension(1000, 700));
+//        driver2.get("http://dev.rumie.org/app_dev.php/user/getapikey?" +
+//        		"username=thao@rumie.org&password=fall2010");
+//        System.out.println(driver2.findElements(By.tagName("body")).get(0).getText());
                  
         
 //        driver.quit();
