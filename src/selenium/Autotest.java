@@ -78,18 +78,21 @@ public class Autotest {
 	public void screenShot(String awsFileName) {
 		// check ENV
 		try {
-		String awsPath = "/usr/local/bin/aws";
-		System.out.println("taking screenshot");
-		TakesScreenshot scrShot = ((TakesScreenshot)driver);
-        File SrcFile = scrShot.getScreenshotAs(OutputType.FILE);
-        // copy file to S3
-		Runtime.getRuntime().exec(awsPath + " s3 cp " 
-				+ SrcFile.getAbsolutePath()
-				+ " s3://autotest-test/" + awsFileName);
-		SrcFile.delete();	// delete file on server
+			String awsPath = config.awsPath();
+			
+			TakesScreenshot scrShot = ((TakesScreenshot)driver);
+	        File SrcFile = scrShot.getScreenshotAs(OutputType.FILE);
+	        
+	        // copy file to S3
+	        Runtime.getRuntime().exec("cp " + SrcFile.getAbsolutePath() + 
+	        		" /Users/thao786/Pictures/selenium/" + awsFileName);
+	        
+			Runtime.getRuntime().exec(awsPath + " s3 cp " 
+					+ " /Users/thao786/Pictures/selenium/" + awsFileName
+					+ " s3://autotest-test/" + awsFileName);
+			SrcFile.delete();
 		} catch (Exception e) {
 			System.out.println(e.getMessage());
-
 	    }
 	}
 	

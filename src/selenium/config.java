@@ -16,4 +16,8 @@ public class config {
 	public static String password() {
 		return "root";
 	}
+
+	public static String awsPath() {
+		return "/usr/local/bin/aws";
+	}
 }
