@@ -43,9 +43,10 @@ import com.mysql.jdbc.Statement;
 
 public class Autotest {
 	public WebDriver driver;
-	public static int AJAX_ASSERTION = 1;
+	
 	public int test_id;
 	public String runId;
+	Connection connection;
 	
 	public Autotest(int test, String runId) {
 		this.test_id = test;
@@ -74,10 +75,11 @@ public class Autotest {
 		return false;
 	}
 
-	public void screenShot(String awsFileName) throws IOException {
+	public void screenShot(String awsFileName) {
 		// check ENV
+		try {
 		String awsPath = "/usr/local/bin/aws";
-		
+		System.out.println("taking screenshot");
 		TakesScreenshot scrShot = ((TakesScreenshot)driver);
         File SrcFile = scrShot.getScreenshotAs(OutputType.FILE);
         // copy file to S3
@@ -85,17 +87,35 @@ public class Autotest {
 				+ SrcFile.getAbsolutePath()
 				+ " s3://autotest-test/" + awsFileName);
 		SrcFile.delete();	// delete file on server
+		} catch (Exception e) {
+			System.out.println(e.getMessage());
+
+	    }
 	}
 	
-	public void checkLog() throws Exception {
-		LogEntries logs = driver.manage().logs().get(LogType.BROWSER);
-        for (LogEntry log : logs) {
-            String msg = log.getMessage();
-            if (msg.contains("Failed to load resource: the server responded with a status")) {
-            	Result fail = new Result(test_id, 0, runId, msg);
-		        fail.sync();
+	public void checkAssertions() throws Exception {
+		// check assertions
+		Statement selectStm = (Statement) connection.createStatement();
+		ResultSet assertions = selectStm.executeQuery("Select * FROM assertions a WHERE a.test_id=" + 
+	    		test_id + " AND a.active = true");
+	    
+		ArrayList<String> tabs = new ArrayList<String>(driver.getWindowHandles());
+        for (int i = 0; i< tabs.size(); i++) {
+        	String webpage = driver.getCurrentUrl();
+        	driver.switchTo().window((String) tabs.get(i));
+			
+        	LogEntries logs = driver.manage().logs().get(LogType.BROWSER);
+            for (LogEntry log : logs) {
+                String msg = log.getMessage();
+                if (msg.contains("Failed to load resource: the server responded with a status")) {
+                	Result fail = new Result(test_id, 0, runId, msg, 
+                			Result.STATUS_ASSERTION, webpage);
+    		        fail.sync();
+                }
             }
-        }
+            
+            // check assertions
+		}
 	}
 	
 	public static void main(String[] args) throws Exception {
@@ -107,9 +127,9 @@ public class Autotest {
 		Set<String> chromeTabs = new HashSet<>();
 		
 		Class.forName("com.mysql.jdbc.Driver").newInstance();
-		Connection connection = (Connection) DriverManager
+		autoTest.connection = (Connection) DriverManager
 				.getConnection(config.url(), config.login(), config.password());
-		Statement selectStm = (Statement) connection.createStatement();
+		Statement selectStm = (Statement) autoTest.connection.createStatement();
 		ResultSet result = selectStm.executeQuery("Select * FROM steps s WHERE s.test_id=" 
 				+ autoTest.test_id + " AND s.active = true");
 				
@@ -186,7 +206,7 @@ public class Autotest {
 			                case "id":
 			                	element = autoTest.driver.findElement(By.id(selector));
 			                	break;
-			                case "class":  
+			                case "class":
 			                	element = autoTest.driver.findElements(By.className(selector)).get(eq);
 			                	break;
 			                case "tag":
@@ -229,20 +249,20 @@ public class Autotest {
 		            	break;
 		        }
 	    	} catch (SQLException e) {
-		        Result fail = new Result(autoTest.test_id, step_id, autoTest.runId, e.getMessage());
+		        Result fail = new Result(autoTest.test_id, step_id, autoTest.runId, 
+		        		e.getMessage(), Result.STEP_SUCCESS_ASSERTION, currentUrl);
+		        
 		        fail.sync();
-		        return;
 		    }
 	    	
 	    	autoTest.screenShot(autoTest.test_id +"-" + autoTest.runId + "-"+ order + ".jpg");
 	      }
 	    
-	    // check default assertions: 
-	    // if all tabs and ajax return 200 
-	    
-	    // check assertions
-	    result = selectStm.executeQuery("Select * FROM assertions a WHERE a.test_id=" + 
-	    		autoTest.test_id + " AND a.active = true");
-	    
+	    Result success = new Result(autoTest.test_id, 0, autoTest.runId, "", Result.REPORT_ASSERTION);
+	    success.sync(); // finish all steps
+        
+	    autoTest.checkAssertions();
+	    autoTest.driver.quit();
+	    return;
 	}
 }
