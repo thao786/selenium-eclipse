@@ -13,8 +13,9 @@ public class Result {
 	public String query = "";
 	
 	public static int STATUS_ASSERTION = 1;
-	public static int REPORT_ASSERTION = 1;
-	public static int STEP_SUCCESS_ASSERTION = 1;
+	public static int REPORT_ASSERTION = 3;
+	public static int STEP_SUCCESS_ASSERTION = 4;
+	public static int URL_MATCH_ASSERTION = 5;
 	
 	public Result(int test, int step, String runId, String error, int assertion, String webpage) {
 		this(test, step, runId, error, assertion);

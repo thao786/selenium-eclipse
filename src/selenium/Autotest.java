@@ -111,9 +111,8 @@ public class Autotest {
             for (LogEntry log : logs) {
                 String msg = log.getMessage();
                 if (msg.contains("Failed to load resource: the server responded with a status")) {
-                	Result fail = new Result(test_id, 0, runId, msg, 
-                			Result.STATUS_ASSERTION, webpage);
-    		        fail.sync();
+                	(new Result(test_id, 0, runId, msg,
+                			Result.STATUS_ASSERTION, webpage)).sync();
                 }
             }
             
@@ -135,7 +134,7 @@ public class Autotest {
 		Statement selectStm = (Statement) autoTest.connection.createStatement();
 		ResultSet result = selectStm.executeQuery("Select * FROM steps s WHERE s.test_id=" 
 				+ autoTest.test_id + " AND s.active = true");
-				
+					   
     	DesiredCapabilities cap = DesiredCapabilities.chrome();
 		LoggingPreferences pref = new LoggingPreferences();
 		pref.enable(LogType.BROWSER, Level.ALL);
@@ -168,7 +167,9 @@ public class Autotest {
 			    		// if find none: if this is not a pageload, throw error, not found such url
 		    			 if (!autoTest.switchTab(webpage)) {
 		    				 System.out.println("Cant find tab with url " + webpage);
-		    				 return;
+		    				 (new Result(autoTest.test_id, step_id, autoTest.runId, 
+	    			        		"mismatch urls " + webpage, 
+	    			        		Result.URL_MATCH_ASSERTION, currentUrl)).sync();
 		    			 }
 		    		}
 	    		}
@@ -252,19 +253,16 @@ public class Autotest {
 		            	break;
 		        }
 	    	} catch (SQLException e) {
-		        Result fail = new Result(autoTest.test_id, step_id, autoTest.runId, 
-		        		e.getMessage(), Result.STEP_SUCCESS_ASSERTION, currentUrl);
-		        
-		        fail.sync();
+		        (new Result(autoTest.test_id, step_id, autoTest.runId, 
+		        		e.getMessage(), Result.STEP_SUCCESS_ASSERTION, currentUrl)).sync();
 		    }
 	    	
 	    	autoTest.screenShot(autoTest.test_id +"-" + autoTest.runId + "-"+ order + ".jpg");
-	      }
+	    }
 	    
-	    Result success = new Result(autoTest.test_id, 0, autoTest.runId, "", Result.REPORT_ASSERTION);
-	    success.sync(); // finish all steps
-        
 	    autoTest.checkAssertions();
+	    
+	    (new Result(autoTest.test_id, 0, autoTest.runId, "", Result.REPORT_ASSERTION)).sync();
 	    autoTest.driver.quit();
 	    return;
 	}
