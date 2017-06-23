@@ -43,7 +43,6 @@ import com.mysql.jdbc.Statement;
 
 public class Autotest {
 	public WebDriver driver;
-	
 	public int test_id;
 	public String runId;
 	Connection connection;
@@ -55,9 +54,10 @@ public class Autotest {
 	
 	public boolean switchTab(String url) {
 		ArrayList<String> tabs = new ArrayList<String>(driver.getWindowHandles());
-        for (int i = 0; i< tabs.size(); i++) {
-        	System.out.println(driver.getCurrentUrl());
+        for (int i = 0; i< tabs.size(); i++) {        	
         	driver.switchTo().window((String) tabs.get(i));
+        	System.out.println(driver.getCurrentUrl());
+        	
 			if (url == driver.getCurrentUrl()) // how to check for new tab? not match http or ftp
 				return true;
 		}
@@ -76,7 +76,6 @@ public class Autotest {
 	}
 
 	public void screenShot(String awsFileName) {
-		// check ENV
 		try {
 			String awsPath = config.awsPath();
 			
@@ -84,16 +83,75 @@ public class Autotest {
 	        File SrcFile = scrShot.getScreenshotAs(OutputType.FILE);
 	        
 	        // copy file to S3
-	        Runtime.getRuntime().exec("cp " + SrcFile.getAbsolutePath() + 
-	        		" /Users/thao786/Pictures/selenium/" + awsFileName);
+	        Runtime.getRuntime().exec("cp " + SrcFile.getAbsolutePath() +
+	        		" " + config.picDir() + awsFileName);
 	        
-			Runtime.getRuntime().exec(awsPath + " s3 cp " 
-					+ " /Users/thao786/Pictures/selenium/" + awsFileName
+	        // resize pic
+	        Runtime.getRuntime().exec(config.convertPath() + " " + config.picDir() + awsFileName + 
+	        		" -resize 50% " + config.picDir() + awsFileName);
+	        
+			Runtime.getRuntime().exec(awsPath + " s3 cp --acl public-read " 
+					+ " " + config.picDir() + awsFileName
 					+ " s3://autotest-test/" + awsFileName);
+			
+			// tag with test value
+			Runtime.getRuntime().exec(awsPath + " s3api put-object-tagging " 
+					+ " --bucket " + config.bucket()
+					+ " --key " + awsFileName
+					+ "--tagging 'TagSet=[{Key=runId,Value=" + runId + "}]'");
+			
 			SrcFile.delete();
 		} catch (Exception e) {
 			System.out.println(e.getMessage());
 	    }
+	}
+	
+	public void checkAssertion(ResultSet assertions) throws Exception {
+		String textInPage, pageSource;
+		WebElement body;
+		String condition = assertions.getString("condition");
+    	String assertion_type = assertions.getString("assertion_type");
+    	int assertion_id = Integer.parseInt(assertions.getString("id"));
+    	
+		switch (assertion_type) {
+	        case "text-in-page":
+	        	body = driver.findElements(By.className("body")).get(0);
+	        	textInPage = body.getText();
+	        	if (!textInPage.contains(condition))
+	        		(new Result(test_id, 0, runId, "",
+	        				assertion_id, driver.getCurrentUrl())).sync();
+	        	break;
+	        case "text-not-in-page":
+	        	body = driver.findElements(By.className("body")).get(0);
+	        	textInPage = body.getText();
+	        	if (textInPage.contains(condition))
+	        		(new Result(test_id, 0, runId, "",
+	        				assertion_id, driver.getCurrentUrl())).sync();
+	        	break;
+	        case "html-in-page":
+	        	pageSource = driver.getPageSource();
+	        	if (!pageSource.contains(condition))
+	        		(new Result(test_id, 0, runId, "",
+	        				assertion_id, driver.getCurrentUrl())).sync();
+	        	break;
+	        case "html-not-in-page":
+	        	pageSource = driver.getPageSource();
+	        	if (pageSource.contains(condition))
+	        		(new Result(test_id, 0, runId, "",
+	        				assertion_id, driver.getCurrentUrl())).sync();
+	        	break;
+	        case "page-title":
+	        	String title = driver.getTitle();
+	        	if (title.contains(condition))
+	        		(new Result(test_id, 0, runId, "",
+	        				assertion_id, driver.getCurrentUrl())).sync();
+	        	break;
+//	        case "status-code": // check console log
+//	        	break;
+	        case "self-enter":
+	        	break;
+	        default: break;
+		}
 	}
 	
 	public void checkAssertions() throws Exception {
@@ -103,9 +161,10 @@ public class Autotest {
 	    		test_id + " AND a.active = true");
 	    
 		ArrayList<String> tabs = new ArrayList<String>(driver.getWindowHandles());
+		// check browser console
         for (int i = 0; i< tabs.size(); i++) {
-        	String webpage = driver.getCurrentUrl();
         	driver.switchTo().window((String) tabs.get(i));
+        	String webpage = driver.getCurrentUrl();
 			
         	LogEntries logs = driver.manage().logs().get(LogType.BROWSER);
             for (LogEntry log : logs) {
@@ -115,9 +174,25 @@ public class Autotest {
                 			Result.STATUS_ASSERTION, webpage)).sync();
                 }
             }
-            
-            // check assertions
 		}
+        
+        // check assertions
+        while(assertions.next()) {
+        	String webpage = assertions.getString("webpage");
+        	for (int i = 0; i< tabs.size(); i++) {
+            	driver.switchTo().window((String) tabs.get(i));
+            	String currentUrl = driver.getCurrentUrl();
+            	
+            	if (currentUrl == webpage) {
+            		checkAssertion(assertions);
+            		break;
+            	}
+            	
+            	// if no webpage specified, try all tabs
+            	if (webpage.trim().length() == 0)
+            		checkAssertion(assertions);
+    		}
+        }
 	}
 	
 	public static void main(String[] args) throws Exception {
@@ -168,7 +243,7 @@ public class Autotest {
 		    			 if (!autoTest.switchTab(webpage)) {
 		    				 System.out.println("Cant find tab with url " + webpage);
 		    				 (new Result(autoTest.test_id, step_id, autoTest.runId, 
-	    			        		"mismatch urls " + webpage, 
+	    			        		"mismatch urls: expect " + webpage + ", got " + currentUrl, 
 	    			        		Result.URL_MATCH_ASSERTION, currentUrl)).sync();
 		    			 }
 		    		}
@@ -257,7 +332,7 @@ public class Autotest {
 		        		e.getMessage(), Result.STEP_SUCCESS_ASSERTION, currentUrl)).sync();
 		    }
 	    	
-	    	autoTest.screenShot(autoTest.test_id +"-" + autoTest.runId + "-"+ order + ".jpg");
+	    	autoTest.screenShot(autoTest.runId + "-"+ order + ".jpg");
 	    }
 	    
 	    autoTest.checkAssertions();
