@@ -202,6 +202,7 @@ public class Autotest {
         
         Autotest autoTest = new Autotest(1, "runId");
 		Set<String> chromeTabs = new HashSet<>();
+		String prevWindowId = "";
 		
 		Class.forName("com.mysql.jdbc.Driver").newInstance();
 		autoTest.connection = (Connection) DriverManager
@@ -224,6 +225,7 @@ public class Autotest {
 	    	String action_type = result.getString("action_type");
 	    	String webpage = result.getString("webpage");
 	    	int scrollLeft, scrollTop, wait = Integer.parseInt(result.getString("wait"));
+	    	String windowId = result.getString("windowId") + "-" +result.getString("tabId");
 	    	String selectorJSON;
 	    	
 	    	String chromeTabWindow = result.getString("tabId") + "-" + result.getString("windowId");
@@ -231,7 +233,7 @@ public class Autotest {
 	    	// only compare root urls (non anchor link)
 	    	String currentUrl = autoTest.driver.getCurrentUrl();
 	    	if (!isBlank(currentUrl)) {
-	    		if (!currentUrl.equals(webpage)) {
+	    		if (!currentUrl.equals(webpage) && !prevWindowId.equals(windowId)) {
 	    			// if this chrome tab never appears before, open a new tab and switch to it
 		    		if (!chromeTabs.contains(chromeTabWindow)) {
 		    			WebElement element = (WebElement) ((JavascriptExecutor)autoTest.driver)
@@ -333,6 +335,7 @@ public class Autotest {
 		    }
 	    	
 	    	autoTest.screenShot(autoTest.runId + "-"+ order + ".jpg");
+	    	prevWindowId = windowId;
 	    }
 	    
 	    autoTest.checkAssertions();
