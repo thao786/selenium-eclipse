@@ -54,7 +54,7 @@ public class Autotest {
 	
 	public boolean switchTab(String url) {
 		ArrayList<String> tabs = new ArrayList<String>(driver.getWindowHandles());
-        for (int i = 0; i< tabs.size(); i++) {        	
+        for (int i = 0; i< tabs.size(); i++) {
         	driver.switchTo().window((String) tabs.get(i));
         	System.out.println(driver.getCurrentUrl());
         	
@@ -115,14 +115,14 @@ public class Autotest {
     	
 		switch (assertion_type) {
 	        case "text-in-page":
-	        	body = driver.findElements(By.className("body")).get(0);
+	        	body = driver.findElements(By.tagName("body")).get(0);
 	        	textInPage = body.getText();
 	        	if (!textInPage.contains(condition))
 	        		(new Result(test_id, 0, runId, "",
 	        				assertion_id, driver.getCurrentUrl())).sync();
 	        	break;
 	        case "text-not-in-page":
-	        	body = driver.findElements(By.className("body")).get(0);
+	        	body = driver.findElements(By.tagName("body")).get(0);
 	        	textInPage = body.getText();
 	        	if (textInPage.contains(condition))
 	        		(new Result(test_id, 0, runId, "",
@@ -200,7 +200,7 @@ public class Autotest {
         		"/usr/local/Cellar/chromedriver/2.29/bin/chromedriver");
         System.setProperty("webdriver.chrome.logfile", "/Users/thao786/log");
         
-        Autotest autoTest = new Autotest(1, "runId");
+        Autotest autoTest = new Autotest(1, 1 + "");
 		Set<String> chromeTabs = new HashSet<>();
 		String prevWindowId = "";
 		
@@ -219,6 +219,8 @@ public class Autotest {
 		JavascriptExecutor jse = (JavascriptExecutor)autoTest.driver;
 		// check if page contains JQuery, otherwise insert
 		
+	    (new Result(autoTest.test_id, 0, autoTest.runId, "", Result.REPORT_ASSERTION)).sync();
+
 	    while(result.next()) {
 	    	int order = Integer.parseInt(result.getString("order"));
 	    	int step_id = Integer.parseInt(result.getString("id"));
@@ -283,42 +285,47 @@ public class Autotest {
 		        		int eq = Integer.parseInt(json.get("eq") + "");
 		        		WebElement element = null;
 		        		
-		        		switch (selectorType) {
-			                case "id":
-			                	element = autoTest.driver.findElement(By.id(selector));
-			                	break;
-			                case "class":
-			                	element = autoTest.driver.findElements(By.className(selector)).get(eq);
-			                	break;
-			                case "tag":
-			                	element = autoTest.driver.findElements(By.tagName(selector)).get(eq);
-			                	break;
-			                case "name":  
-			                	element = autoTest.driver.findElements(By.name(selector)).get(eq);
-			                	break;
-			                case "partialLink": 
-			                	element = autoTest.driver.findElements(By.partialLinkText(selector)).get(eq);
-			                	break;
-			                case "href":  
-			                	element = autoTest.driver.findElements
-			                				(By.cssSelector("a[href='" + selector + "']")).get(eq);
-			                	break;
-			                case "button":
-			                	element = (WebElement) ((JavascriptExecutor)autoTest.driver)
-			                		.executeScript("return $('button:contains(\"" + selector + "\")')[0]");
-			                	break;
-			                case "css":
-			                	element = autoTest.driver.findElements(By.cssSelector(selector)).get(eq);
-			                	break;
-			                case "coordination":
-			                	int x = (int) json.get("x");
-			                	int y = (int) json.get("y");
-			                	WebElement dummy = autoTest.driver.findElement(By.id("foo"));
-			                	Actions act = new Actions(autoTest.driver);
-			                    act.moveToElement(dummy).moveByOffset(x, y).click().perform();
-			                	break;
-			                default: break;
-		        		}
+		        		try {
+			        		switch (selectorType) {
+				                case "id":
+				                	element = autoTest.driver.findElement(By.id(selector));
+				                	break;
+				                case "class":
+				                	element = autoTest.driver.findElements(By.className(selector)).get(eq);
+				                	break;
+				                case "tag":
+				                	element = autoTest.driver.findElements(By.tagName(selector)).get(eq);
+				                	break;
+				                case "name":  
+				                	element = autoTest.driver.findElements(By.name(selector)).get(eq);
+				                	break;
+				                case "partialLink": 
+				                	element = autoTest.driver.findElements(By.partialLinkText(selector)).get(eq);
+				                	break;
+				                case "href":  
+				                	element = autoTest.driver.findElements
+				                				(By.cssSelector("a[href='" + selector + "']")).get(eq);
+				                	break;
+				                case "button":
+				                	element = (WebElement) ((JavascriptExecutor)autoTest.driver)
+				                		.executeScript("return $('button:contains(\"" + selector + "\")')[0]");
+				                	break;
+				                case "css":
+				                	element = autoTest.driver.findElements(By.cssSelector(selector)).get(eq);
+				                	break;
+				                case "coordination":
+				                	int x = (int) json.get("x");
+				                	int y = (int) json.get("y");
+				                	WebElement dummy = autoTest.driver.findElement(By.id("foo"));
+				                	Actions act = new Actions(autoTest.driver);
+				                    act.moveToElement(dummy).moveByOffset(x, y).click().perform();
+				                	break;
+				                default: break;
+			        		}
+		        		} catch (Exception e) {
+		    		        (new Result(autoTest.test_id, step_id, autoTest.runId, 
+		    		        		"could not find this selector " + selectorType, Result.STEP_SUCCESS_ASSERTION, currentUrl)).sync();
+		    		    }
 		        		
 		        		if (element != null)
 		        			element.click();
@@ -339,8 +346,6 @@ public class Autotest {
 	    }
 	    
 	    autoTest.checkAssertions();
-	    
-	    (new Result(autoTest.test_id, 0, autoTest.runId, "", Result.REPORT_ASSERTION)).sync();
 	    autoTest.driver.quit();
 	    return;
 	}
