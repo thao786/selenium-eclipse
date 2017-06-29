@@ -47,9 +47,9 @@ public class Autotest {
 	public String runId;
 	Connection connection;
 	
-	public Autotest(int test, String runId) {
+	public Autotest(int test) {
 		this.test_id = test;
-		this.runId = runId;
+		this.runId = test + "";
 	}
 	
 	public boolean switchTab(String url) {
@@ -200,7 +200,7 @@ public class Autotest {
         		"/usr/local/Cellar/chromedriver/2.29/bin/chromedriver");
         System.setProperty("webdriver.chrome.logfile", "/Users/thao786/log");
         
-        Autotest autoTest = new Autotest(1, 1 + "");
+        Autotest autoTest = new Autotest(Integer.parseInt(args[0]));
 		Set<String> chromeTabs = new HashSet<>();
 		String prevWindowId = "";
 		
@@ -302,9 +302,13 @@ public class Autotest {
 				                case "partialLink": 
 				                	element = autoTest.driver.findElements(By.partialLinkText(selector)).get(eq);
 				                	break;
-				                case "href":  
+				                case "href":
 				                	element = autoTest.driver.findElements
 				                				(By.cssSelector("a[href='" + selector + "']")).get(eq);
+				                	break;
+				                case "partialHref":  
+				                	element = autoTest.driver.findElements
+				                				(By.cssSelector("a[href*='" + selector + "']")).get(eq);
 				                	break;
 				                case "button":
 				                	element = (WebElement) ((JavascriptExecutor)autoTest.driver)
