@@ -341,11 +341,10 @@ public class Autotest {
 	public static void main(String[] args) throws Exception {
 		System.setProperty("webdriver.chrome.driver",
         		"/usr/local/Cellar/chromedriver/2.29/bin/chromedriver");
-        System.setProperty("webdriver.chrome.logfile", "~/log");
+        System.setProperty("webdriver.chrome.logfile", config.home + "log");
         
         Autotest autoTest = new Autotest(Integer.parseInt(args[0]));
         autoTest.chromeTabs = new HashSet<>();
-		
 		
 		Class.forName("com.mysql.jdbc.Driver").newInstance();
 		autoTest.connection = (Connection) DriverManager
@@ -363,8 +362,7 @@ public class Autotest {
 		// check if page contains JQuery, otherwise insert
 		
 	    (new Result(autoTest.test_id, 0, autoTest.runId, "", Result.REPORT_ASSERTION)).sync();
-
-	    
+	    autoTest.runSteps(result, true);
 	    
 	    autoTest.checkAssertions();
 	    autoTest.driver.quit();

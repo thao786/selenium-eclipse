@@ -5,6 +5,7 @@ public class config {
 		return "dev";
 	}
 	
+	public static String home = "/Users/thao786/";
 	public static String bucket = "autotest-test";
 	
 	public static String convertPath() {
