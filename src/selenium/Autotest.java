@@ -46,6 +46,8 @@ public class Autotest {
 	public int test_id;
 	public String runId;
 	Connection connection;
+	Set<String> chromeTabs;
+	JavascriptExecutor jse;
 	
 	public Autotest(int test) {
 		this.test_id = test;
@@ -96,7 +98,7 @@ public class Autotest {
 			
 			// tag with test value
 			Runtime.getRuntime().exec(awsPath + " s3api put-object-tagging " 
-					+ " --bucket " + config.bucket()
+					+ " --bucket " + config.bucket
 					+ " --key " + awsFileName
 					+ "--tagging 'TagSet=[{Key=runId,Value=" + runId + "}]'");
 			
@@ -195,33 +197,10 @@ public class Autotest {
         }
 	}
 	
-	public static void main(String[] args) throws Exception {
-		System.setProperty("webdriver.chrome.driver",
-        		"/usr/local/Cellar/chromedriver/2.29/bin/chromedriver");
-        System.setProperty("webdriver.chrome.logfile", "/Users/thao786/log");
-        
-        Autotest autoTest = new Autotest(Integer.parseInt(args[0]));
-		Set<String> chromeTabs = new HashSet<>();
+	public void runSteps(ResultSet result, boolean sreenshot) throws Exception {
 		String prevWindowId = "";
 		
-		Class.forName("com.mysql.jdbc.Driver").newInstance();
-		autoTest.connection = (Connection) DriverManager
-				.getConnection(config.url(), config.login(), config.password());
-		Statement selectStm = (Statement) autoTest.connection.createStatement();
-		ResultSet result = selectStm.executeQuery("Select * FROM steps s WHERE s.test_id=" 
-				+ autoTest.test_id + " AND s.active = true");
-					   
-    	DesiredCapabilities cap = DesiredCapabilities.chrome();
-		LoggingPreferences pref = new LoggingPreferences();
-		pref.enable(LogType.BROWSER, Level.ALL);
-		cap.setCapability(CapabilityType.LOGGING_PREFS, pref);
-		autoTest.driver = new ChromeDriver(cap);
-		JavascriptExecutor jse = (JavascriptExecutor)autoTest.driver;
-		// check if page contains JQuery, otherwise insert
-		
-	    (new Result(autoTest.test_id, 0, autoTest.runId, "", Result.REPORT_ASSERTION)).sync();
-
-	    while(result.next()) {
+		while(result.next()) {
 	    	int order = Integer.parseInt(result.getString("order"));
 	    	int step_id = Integer.parseInt(result.getString("id"));
 	    	String action_type = result.getString("action_type");
@@ -230,23 +209,25 @@ public class Autotest {
 	    	String windowId = result.getString("windowId") + "-" +result.getString("tabId");
 	    	String selectorJSON;
 	    	
+	    	System.out.println("Step " + step_id);
+	    	
 	    	String chromeTabWindow = result.getString("tabId") + "-" + result.getString("windowId");
 	    	// check if we need to switch tab
 	    	// only compare root urls (non anchor link)
-	    	String currentUrl = autoTest.driver.getCurrentUrl();
+	    	String currentUrl = driver.getCurrentUrl();
 	    	if (!isBlank(currentUrl)) {
 	    		if (!currentUrl.equals(webpage) && !prevWindowId.equals(windowId)) {
 	    			// if this chrome tab never appears before, open a new tab and switch to it
 		    		if (!chromeTabs.contains(chromeTabWindow)) {
-		    			WebElement element = (WebElement) ((JavascriptExecutor)autoTest.driver)
+		    			WebElement element = (WebElement) ((JavascriptExecutor)driver)
 		    	        		.executeScript("window.open('');");
-		    			autoTest.switchTab("about:blank"); // Chrome only
+		    			switchTab("about:blank"); // Chrome only
 		    		} else {
 		    			// if we have this tab already, check all tabs, find the first page with this url
 			    		// if find none: if this is not a pageload, throw error, not found such url
-		    			 if (!autoTest.switchTab(webpage)) {
+		    			 if (!switchTab(webpage)) {
 		    				 System.out.println("Cant find tab with url " + webpage);
-		    				 (new Result(autoTest.test_id, step_id, autoTest.runId, 
+		    				 (new Result(test_id, step_id, runId, 
 	    			        		"mismatch urls: expect " + webpage + ", got " + currentUrl, 
 	    			        		Result.URL_MATCH_ASSERTION, currentUrl)).sync();
 		    			 }
@@ -261,8 +242,8 @@ public class Autotest {
 		            case "pageload":
 		            	// only load new webpage if we dont have it yet
 		            	// pageload could result from a link click (no actual reload in this case)
-		            	if (autoTest.driver.getCurrentUrl() != webpage) {
-		            		autoTest.driver.get(webpage);
+		            	if (driver.getCurrentUrl() != webpage) {
+		            		driver.get(webpage);
 		            	}
 		            	break;
 		            case "scroll":
@@ -272,7 +253,7 @@ public class Autotest {
 		            	break;
 		            case "keypress":
 		            	String typed = result.getString("typed");
-		            	Actions action = new Actions(autoTest.driver);
+		            	Actions action = new Actions(driver);
 		                action.sendKeys(typed);
 		                action.perform();
 		            	break;
@@ -288,51 +269,56 @@ public class Autotest {
 		        		try {
 			        		switch (selectorType) {
 				                case "id":
-				                	element = autoTest.driver.findElement(By.id(selector));
+				                	element = driver.findElement(By.id(selector));
 				                	break;
 				                case "class":
-				                	element = autoTest.driver.findElements(By.className(selector)).get(eq);
+				                	element = driver.findElements(By.className(selector)).get(eq);
 				                	break;
 				                case "tag":
-				                	element = autoTest.driver.findElements(By.tagName(selector)).get(eq);
+				                	element = driver.findElements(By.tagName(selector)).get(eq);
 				                	break;
 				                case "name":  
-				                	element = autoTest.driver.findElements(By.name(selector)).get(eq);
+				                	element = driver.findElements(By.name(selector)).get(eq);
 				                	break;
 				                case "partialLink": 
-				                	element = autoTest.driver.findElements(By.partialLinkText(selector)).get(eq);
+				                	element = driver.findElements(By.partialLinkText(selector)).get(eq);
 				                	break;
 				                case "href":
-				                	element = autoTest.driver.findElements
+				                	element = driver.findElements
 				                				(By.cssSelector("a[href='" + selector + "']")).get(eq);
 				                	break;
 				                case "partialHref":  
-				                	element = autoTest.driver.findElements
+				                	element = driver.findElements
 				                				(By.cssSelector("a[href*='" + selector + "']")).get(eq);
 				                	break;
 				                case "button":
-				                	element = (WebElement) ((JavascriptExecutor)autoTest.driver)
+				                	element = (WebElement) ((JavascriptExecutor)driver)
 				                		.executeScript("return $('button:contains(\"" + selector + "\")')[0]");
 				                	break;
 				                case "css":
-				                	element = autoTest.driver.findElements(By.cssSelector(selector)).get(eq);
+				                	element = driver.findElements(By.cssSelector(selector)).get(eq);
 				                	break;
 				                case "coordination":
 				                	int x = (int) json.get("x");
 				                	int y = (int) json.get("y");
-				                	WebElement dummy = autoTest.driver.findElement(By.id("foo"));
-				                	Actions act = new Actions(autoTest.driver);
+				                	WebElement dummy = driver.findElement(By.id("foo"));
+				                	Actions act = new Actions(driver);
 				                    act.moveToElement(dummy).moveByOffset(x, y).click().perform();
 				                	break;
 				                default: break;
 			        		}
 		        		} catch (Exception e) {
-		    		        (new Result(autoTest.test_id, step_id, autoTest.runId, 
+		    		        (new Result(test_id, step_id, runId, 
 		    		        		"could not find this selector " + selectorType, Result.STEP_SUCCESS_ASSERTION, currentUrl)).sync();
 		    		    }
-		        		
+
 		        		if (element != null)
-		        			element.click();
+		        			try {
+			        			element.click();
+			        		} catch (Exception e) {
+			    		        (new Result(test_id, step_id, runId, 
+			    		        		e.getMessage(), Result.STEP_SUCCESS_ASSERTION, currentUrl)).sync();
+			    		    }
 		        		
 		            	break;
 		            case "resize":
@@ -341,13 +327,44 @@ public class Autotest {
 		            	break;
 		        }
 	    	} catch (SQLException e) {
-		        (new Result(autoTest.test_id, step_id, autoTest.runId, 
+		        (new Result(test_id, step_id, runId, 
 		        		e.getMessage(), Result.STEP_SUCCESS_ASSERTION, currentUrl)).sync();
 		    }
 	    	
-	    	autoTest.screenShot(autoTest.runId + "-"+ order + ".jpg");
+	    	if (sreenshot)
+	    		screenShot(runId + "-"+ order + ".jpg");
+	    	
 	    	prevWindowId = windowId;
 	    }
+	}
+	
+	public static void main(String[] args) throws Exception {
+		System.setProperty("webdriver.chrome.driver",
+        		"/usr/local/Cellar/chromedriver/2.29/bin/chromedriver");
+        System.setProperty("webdriver.chrome.logfile", "~/log");
+        
+        Autotest autoTest = new Autotest(Integer.parseInt(args[0]));
+        autoTest.chromeTabs = new HashSet<>();
+		
+		
+		Class.forName("com.mysql.jdbc.Driver").newInstance();
+		autoTest.connection = (Connection) DriverManager
+				.getConnection(config.url(), config.login(), config.password());
+		Statement selectStm = (Statement) autoTest.connection.createStatement();
+		ResultSet result = selectStm.executeQuery("Select * FROM steps s WHERE s.test_id=" 
+				+ autoTest.test_id + " AND s.active = true");
+					   
+    	DesiredCapabilities cap = DesiredCapabilities.chrome();
+		LoggingPreferences pref = new LoggingPreferences();
+		pref.enable(LogType.BROWSER, Level.ALL);
+		cap.setCapability(CapabilityType.LOGGING_PREFS, pref);
+		autoTest.driver = new ChromeDriver(cap);
+		autoTest.jse = (JavascriptExecutor)autoTest.driver;
+		// check if page contains JQuery, otherwise insert
+		
+	    (new Result(autoTest.test_id, 0, autoTest.runId, "", Result.REPORT_ASSERTION)).sync();
+
+	    
 	    
 	    autoTest.checkAssertions();
 	    autoTest.driver.quit();

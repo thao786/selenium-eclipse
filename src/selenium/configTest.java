@@ -1,18 +1,20 @@
 package selenium;
 
-public class config {
+public class configTest {
 	public static String getEvn() {
 		return "dev";
 	}
 	
-	public static String bucket = "autotest-test";
+	public static String bucket() {
+		return "autotest-test";
+	}
 	
 	public static String convertPath() {
 		return "/opt/local/bin/convert";
 	}
 	
 	public static String picDir() {
-		return "~/Pictures/selenium/";
+		return "/Users/thao786/Pictures/selenium/";
 	}
 	
 	public static String url() {
