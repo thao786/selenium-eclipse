@@ -43,14 +43,14 @@ import com.mysql.jdbc.Statement;
 
 public class Autotest {
 	public WebDriver driver;
-	public int test_id;
+	public int main_test_id;
 	public String runId;
 	Connection connection;
 	Set<String> chromeTabs;
 	JavascriptExecutor jse;
 	
 	public Autotest(int test) {
-		this.test_id = test;
+		this.main_test_id = test;
 		this.runId = test + "";
 	}
 	
@@ -120,32 +120,32 @@ public class Autotest {
 	        	body = driver.findElements(By.tagName("body")).get(0);
 	        	textInPage = body.getText();
 	        	if (!textInPage.contains(condition))
-	        		(new Result(test_id, 0, runId, "",
+	        		(new Result(main_test_id, 0, runId, "",
 	        				assertion_id, driver.getCurrentUrl())).sync();
 	        	break;
 	        case "text-not-in-page":
 	        	body = driver.findElements(By.tagName("body")).get(0);
 	        	textInPage = body.getText();
 	        	if (textInPage.contains(condition))
-	        		(new Result(test_id, 0, runId, "",
+	        		(new Result(main_test_id, 0, runId, "",
 	        				assertion_id, driver.getCurrentUrl())).sync();
 	        	break;
 	        case "html-in-page":
 	        	pageSource = driver.getPageSource();
 	        	if (!pageSource.contains(condition))
-	        		(new Result(test_id, 0, runId, "",
+	        		(new Result(main_test_id, 0, runId, "",
 	        				assertion_id, driver.getCurrentUrl())).sync();
 	        	break;
 	        case "html-not-in-page":
 	        	pageSource = driver.getPageSource();
 	        	if (pageSource.contains(condition))
-	        		(new Result(test_id, 0, runId, "",
+	        		(new Result(main_test_id, 0, runId, "",
 	        				assertion_id, driver.getCurrentUrl())).sync();
 	        	break;
 	        case "page-title":
 	        	String title = driver.getTitle();
 	        	if (title.contains(condition))
-	        		(new Result(test_id, 0, runId, "",
+	        		(new Result(main_test_id, 0, runId, "",
 	        				assertion_id, driver.getCurrentUrl())).sync();
 	        	break;
 //	        case "status-code": // check console log
@@ -160,7 +160,7 @@ public class Autotest {
 		// check assertions
 		Statement selectStm = (Statement) connection.createStatement();
 		ResultSet assertions = selectStm.executeQuery("Select * FROM assertions a WHERE a.test_id=" + 
-	    		test_id + " AND a.active = true");
+	    		main_test_id + " AND a.active = true");
 	    
 		ArrayList<String> tabs = new ArrayList<String>(driver.getWindowHandles());
 		// check browser console
@@ -172,7 +172,7 @@ public class Autotest {
             for (LogEntry log : logs) {
                 String msg = log.getMessage();
                 if (msg.contains("Failed to load resource: the server responded with a status")) {
-                	(new Result(test_id, 0, runId, msg,
+                	(new Result(main_test_id, 0, runId, msg,
                 			Result.STATUS_ASSERTION, webpage)).sync();
                 }
             }
@@ -197,12 +197,24 @@ public class Autotest {
         }
 	}
 	
-	public void runSteps(ResultSet result, boolean sreenshot) throws Exception {
+	// only take screenshot of main test
+	// before each step, run the pre-test. this only applies to main test
+	public void runSteps(int test_id) throws Exception {
 		String prevWindowId = "";
+		Statement selectStm = (Statement) connection.createStatement();
+		ResultSet result = selectStm.executeQuery("Select * FROM steps s WHERE s.test_id=" 
+				+ main_test_id + " AND s.active = true");
 		
-		while(result.next()) {
+		while (result.next()) {
+			// run pre-test
+			int step_id = Integer.parseInt(result.getString("id"));
+			ResultSet preTests = selectStm.executeQuery(
+					"Select test_id FROM prep_tests s WHERE s.step_id=" + step_id);
+			while (preTests.next()) {
+				runSteps(Integer.parseInt(preTests.getString("test_id")));
+			}
+			
 	    	int order = Integer.parseInt(result.getString("order"));
-	    	int step_id = Integer.parseInt(result.getString("id"));
 	    	String action_type = result.getString("action_type");
 	    	String webpage = result.getString("webpage");
 	    	int scrollLeft, scrollTop, wait = Integer.parseInt(result.getString("wait"));
@@ -227,7 +239,7 @@ public class Autotest {
 			    		// if find none: if this is not a pageload, throw error, not found such url
 		    			 if (!switchTab(webpage)) {
 		    				 System.out.println("Cant find tab with url " + webpage);
-		    				 (new Result(test_id, step_id, runId, 
+		    				 (new Result(main_test_id, step_id, runId, 
 	    			        		"mismatch urls: expect " + webpage + ", got " + currentUrl, 
 	    			        		Result.URL_MATCH_ASSERTION, currentUrl)).sync();
 		    			 }
@@ -308,7 +320,7 @@ public class Autotest {
 				                default: break;
 			        		}
 		        		} catch (Exception e) {
-		    		        (new Result(test_id, step_id, runId, 
+		    		        (new Result(main_test_id, step_id, runId, 
 		    		        		"could not find this selector " + selectorType, Result.STEP_SUCCESS_ASSERTION, currentUrl)).sync();
 		    		    }
 
@@ -316,7 +328,7 @@ public class Autotest {
 		        			try {
 			        			element.click();
 			        		} catch (Exception e) {
-			    		        (new Result(test_id, step_id, runId, 
+			    		        (new Result(main_test_id, step_id, runId, 
 			    		        		e.getMessage(), Result.STEP_SUCCESS_ASSERTION, currentUrl)).sync();
 			    		    }
 		        		
@@ -327,11 +339,11 @@ public class Autotest {
 		            	break;
 		        }
 	    	} catch (SQLException e) {
-		        (new Result(test_id, step_id, runId, 
+		        (new Result(main_test_id, step_id, runId, 
 		        		e.getMessage(), Result.STEP_SUCCESS_ASSERTION, currentUrl)).sync();
 		    }
 	    	
-	    	if (sreenshot)
+	    	if (test_id == main_test_id)
 	    		screenShot(runId + "-"+ order + ".jpg");
 	    	
 	    	prevWindowId = windowId;
@@ -339,8 +351,7 @@ public class Autotest {
 	}
 	
 	public static void main(String[] args) throws Exception {
-		System.setProperty("webdriver.chrome.driver",
-        		"/usr/local/Cellar/chromedriver/2.29/bin/chromedriver");
+		System.setProperty("webdriver.chrome.driver", "/Users/thao786/Documents/chromedriver");
         System.setProperty("webdriver.chrome.logfile", config.home + "log");
         
         Autotest autoTest = new Autotest(Integer.parseInt(args[0]));
@@ -349,20 +360,18 @@ public class Autotest {
 		Class.forName("com.mysql.jdbc.Driver").newInstance();
 		autoTest.connection = (Connection) DriverManager
 				.getConnection(config.url(), config.login(), config.password());
-		Statement selectStm = (Statement) autoTest.connection.createStatement();
-		ResultSet result = selectStm.executeQuery("Select * FROM steps s WHERE s.test_id=" 
-				+ autoTest.test_id + " AND s.active = true");
 					   
     	DesiredCapabilities cap = DesiredCapabilities.chrome();
 		LoggingPreferences pref = new LoggingPreferences();
 		pref.enable(LogType.BROWSER, Level.ALL);
 		cap.setCapability(CapabilityType.LOGGING_PREFS, pref);
+		
 		autoTest.driver = new ChromeDriver(cap);
 		autoTest.jse = (JavascriptExecutor)autoTest.driver;
 		// check if page contains JQuery, otherwise insert
 		
-	    (new Result(autoTest.test_id, 0, autoTest.runId, "", Result.REPORT_ASSERTION)).sync();
-	    autoTest.runSteps(result, true);
+	    (new Result(autoTest.main_test_id, 0, autoTest.runId, "", Result.REPORT_ASSERTION)).sync();
+	    autoTest.runSteps(autoTest.main_test_id);
 	    
 	    autoTest.checkAssertions();
 	    autoTest.driver.quit();
