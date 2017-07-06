@@ -79,21 +79,21 @@ public class Autotest {
 
 	public void screenShot(String awsFileName) {
 		try {
-			String awsPath = config.awsPath();
+			String awsPath = config.awsPath;
 			
 			TakesScreenshot scrShot = ((TakesScreenshot)driver);
 	        File SrcFile = scrShot.getScreenshotAs(OutputType.FILE);
 	        
 	        // copy file to S3
 	        Runtime.getRuntime().exec("cp " + SrcFile.getAbsolutePath() +
-	        		" " + config.picDir() + awsFileName);
+	        		" " + config.picDir + awsFileName);
 	        
 	        // resize pic
-	        Runtime.getRuntime().exec(config.convertPath() + " " + config.picDir() + awsFileName + 
-	        		" -resize 50% " + config.picDir() + awsFileName);
+	        Runtime.getRuntime().exec(config.convertPath + " " + config.picDir + awsFileName + 
+	        		" -resize 50% " + config.picDir + awsFileName);
 	        
 			Runtime.getRuntime().exec(awsPath + " s3 cp --acl public-read " 
-					+ " " + config.picDir() + awsFileName
+					+ " " + config.picDir + awsFileName
 					+ " s3://autotest-test/" + awsFileName);
 			
 			// tag with test value
@@ -348,7 +348,7 @@ public class Autotest {
 		
 		Class.forName("com.mysql.jdbc.Driver").newInstance();
 		autoTest.connection = (Connection) DriverManager
-				.getConnection(config.url(), config.login(), config.password());
+				.getConnection(config.url, config.login, config.password);
 		Statement selectStm = (Statement) autoTest.connection.createStatement();
 		ResultSet result = selectStm.executeQuery("Select * FROM steps s WHERE s.test_id=" 
 				+ autoTest.test_id + " AND s.active = true");
