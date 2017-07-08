@@ -359,11 +359,7 @@ public class Autotest {
 		
 		Class.forName("com.mysql.jdbc.Driver").newInstance();
 		autoTest.connection = (Connection) DriverManager
-				.getConnection(config.url, config.login, config.password);
-		Statement selectStm = (Statement) autoTest.connection.createStatement();
-		ResultSet result = selectStm.executeQuery("Select * FROM steps s WHERE s.test_id=" 
-				+ autoTest.test_id + " AND s.active = true");
-
+				.getConnection(config.url, config.login, config.password);		
 					   
     	DesiredCapabilities cap = DesiredCapabilities.chrome();
 		LoggingPreferences pref = new LoggingPreferences();

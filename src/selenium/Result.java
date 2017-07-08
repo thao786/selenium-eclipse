@@ -39,7 +39,7 @@ public class Result {
 					"VALUES (?, ?, ?, ?, ?, ?);";
 		
 		Connection connection = (Connection) DriverManager
-				.getConnection(config.url(), config.login(), config.password());
+				.getConnection(config.url, config.login, config.password);
 		PreparedStatement insertStm = connection.prepareStatement(query);
 		insertStm.setInt(1, test_id);
 		insertStm.setString(2, runId);
