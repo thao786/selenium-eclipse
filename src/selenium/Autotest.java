@@ -2,6 +2,8 @@ package selenium;
 
 import java.io.File;
 import java.io.IOException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -78,13 +80,14 @@ public class Autotest {
 	}
 
 	public void screenShot(String awsFileName) {
+		System.out.println(awsFileName);
 		try {
 			String awsPath = config.awsPath;
 			
 			TakesScreenshot scrShot = ((TakesScreenshot)driver);
 	        File SrcFile = scrShot.getScreenshotAs(OutputType.FILE);
 	        
-	        // copy file to S3
+	        // copy file to Picture folder
 	        Runtime.getRuntime().exec("cp " + SrcFile.getAbsolutePath() +
 	        		" " + config.picDir + awsFileName);
 	        
@@ -92,6 +95,7 @@ public class Autotest {
 	        Runtime.getRuntime().exec(config.convertPath + " " + config.picDir + awsFileName + 
 	        		" -resize 50% " + config.picDir + awsFileName);
 	        
+	        // upload to S3
 			Runtime.getRuntime().exec(awsPath + " s3 cp --acl public-read " 
 					+ " " + config.picDir + awsFileName
 					+ " s3://autotest-test/" + awsFileName);
@@ -208,11 +212,14 @@ public class Autotest {
 		while (result.next()) {
 			// run pre-test
 			int step_id = Integer.parseInt(result.getString("id"));
-			ResultSet preTests = selectStm.executeQuery(
-					"Select test_id FROM prep_tests s WHERE s.step_id=" + step_id);
-			while (preTests.next()) {
-				runSteps(Integer.parseInt(preTests.getString("test_id")));
-			}
+			if (test_id == main_test_id) { // only run pre-tests for main test
+				Statement pretestStm = (Statement) connection.createStatement();
+				ResultSet preTests = pretestStm.executeQuery(
+						"Select test_id FROM prep_tests s WHERE s.step_id=" + step_id);
+				while (preTests.next()) {
+					runSteps(Integer.parseInt(preTests.getString("test_id")));
+				}
+			}			
 			
 	    	int order = Integer.parseInt(result.getString("order"));
 	    	String action_type = result.getString("action_type");
@@ -344,13 +351,25 @@ public class Autotest {
 		    }
 	    	
 	    	if (test_id == main_test_id)
-	    		screenShot(runId + "-"+ order + ".jpg");
+	    		screenShot(md5(runId + "-"+ order) + ".jpg");
 	    	
 	    	prevWindowId = windowId;
 	    }
 	}
 	
-	public static void main(String[] args) throws Exception {
+	public static String md5(String original) throws Exception {
+		MessageDigest md = MessageDigest.getInstance("MD5");
+		md.update(original.getBytes());
+		byte[] digest = md.digest();
+		StringBuffer sb = new StringBuffer();
+		
+		for (byte b : digest) {
+			sb.append(String.format("%02x", b & 0xff));
+		}
+		return sb.toString();
+	}
+	
+ 	public static void main(String[] args) throws Exception {
 		System.setProperty("webdriver.chrome.driver", "/Users/thao786/Documents/chromedriver");
         System.setProperty("webdriver.chrome.logfile", config.home + "log");
         

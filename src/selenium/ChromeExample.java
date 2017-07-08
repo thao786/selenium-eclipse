@@ -39,32 +39,6 @@ public class ChromeExample  {
     }
      
     public static void main(String[] args) throws Exception {
-        System.setProperty("webdriver.chrome.driver", 
-        		"/usr/local/Cellar/chromedriver/2.29/bin/chromedriver");
-        System.setProperty("webdriver.chrome.logfile", "/Users/thao786/log");
-        DesiredCapabilities cap = DesiredCapabilities.chrome();
-         
-		// Set logging preference In Google Chrome browser capability to log
-		// browser errors.
-		LoggingPreferences pref = new LoggingPreferences();
-		pref.enable(LogType.BROWSER, Level.ALL);
-		cap.setCapability(CapabilityType.LOGGING_PREFS, pref);
-       
-        WebDriver driver = new ChromeDriver(cap);
-        JavascriptExecutor jse = (JavascriptExecutor)driver;
-        driver.manage().window().setSize(new Dimension(1000, 700));
-               
-	        driver.get("http://test-content.rumie.org/search");	         
-	        System.out.println("Page title is: " + driver.getTitle());
-	        
-	        Boolean return_value = (Boolean)jse.executeScript("return $('.colblock').length >= 30");
-	        System.out.println(return_value);
-	        
-
-        Thread.sleep(4000);
-        ChromeExample.getConsole(driver);
-        
-        
-//        driver.quit();
+    	System.out.println("digested(hex):" + Autotest.md5("secret"));
     }
 }
