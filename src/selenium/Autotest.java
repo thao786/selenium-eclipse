@@ -1,7 +1,9 @@
 package selenium;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -261,6 +263,7 @@ public class Autotest {
 		            case "pageload":
 		            	// only load new webpage if we dont have it yet
 		            	// pageload could result from a link click (no actual reload in this case)
+		            	// set headers and params
 		            	if (driver.getCurrentUrl() != webpage) {
 		            		driver.get(webpage);
 		            	}
@@ -367,6 +370,34 @@ public class Autotest {
 			sb.append(String.format("%02x", b & 0xff));
 		}
 		return sb.toString();
+	}
+	
+	public static String rubyInterpolate(String s) throws Exception {
+		if (!s.matches("^\".*#\\{.+\\}.*\"$")) // test Ruby interpolation format
+			return s;
+		
+		Runtime rt = Runtime.getRuntime();
+    	String[] commands = {"ls", "-l"};
+    	Process proc = rt.exec(commands);
+
+    	BufferedReader stdInput = new BufferedReader(new 
+    	     InputStreamReader(proc.getInputStream()));
+
+    	BufferedReader stdError = new BufferedReader(new 
+    	     InputStreamReader(proc.getErrorStream()));
+
+    	// read the output from the command
+    	String result = stdInput.readLine();
+    	System.out.println(result);
+    	
+    	// read any errors from the attempted command
+    	String e;
+    	System.out.println("Here is the standard error of the command (if any):\n");
+    	while ((e = stdError.readLine()) != null) {
+    	    System.out.println(e);
+    	}
+    	
+    	return result;
 	}
 	
  	public static void main(String[] args) throws Exception {

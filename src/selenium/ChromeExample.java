@@ -1,7 +1,8 @@
 package selenium;
 
+import java.io.BufferedReader;
 import java.io.IOException;
-
+import java.io.InputStreamReader;
 import java.util.Date;
 import java.util.List;
 import java.util.logging.Level;
@@ -39,6 +40,10 @@ public class ChromeExample  {
     }
      
     public static void main(String[] args) throws Exception {
-    	System.out.println("digested(hex):" + Autotest.md5("secret"));
+    	String s = "\"hygt#{rfe}d\"";
+    	if (s.matches("^\".*#\\{.+\\}.*\"$")) {
+    	    System.out.println("yes");
+    	} else
+    		System.out.println("no");
     }
 }
