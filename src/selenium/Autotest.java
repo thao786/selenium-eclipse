@@ -409,7 +409,9 @@ public class Autotest {
 		
 		Class.forName("com.mysql.jdbc.Driver").newInstance();
 		autoTest.connection = (Connection) DriverManager
-				.getConnection(config.url, config.login, config.password);		
+				.getConnection(config.url, config.login, config.password);	
+		Statement deleteStm = (Statement) autoTest.connection.createStatement();
+		deleteStm.executeUpdate("DELETE FROM results WHERE test_id=" + autoTest.main_test_id);
 					   
     	DesiredCapabilities cap = DesiredCapabilities.chrome();
 		LoggingPreferences pref = new LoggingPreferences();
