@@ -1,7 +1,9 @@
 package selenium;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.security.MessageDigest;
@@ -16,6 +18,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.StringEscapeUtils;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.openqa.selenium.By;
@@ -48,7 +51,7 @@ import com.mysql.jdbc.Statement;
 public class Autotest {
 	public WebDriver driver;
 	public int main_test_id;
-	public String runId;
+	public String runId; // unique 
 	Connection connection;
 	Set<String> chromeTabs;
 	JavascriptExecutor jse;
@@ -82,7 +85,6 @@ public class Autotest {
 	}
 
 	public void screenShot(String awsFileName) {
-		System.out.println(awsFileName);
 		try {
 			String awsPath = config.awsPath;
 			
@@ -91,15 +93,15 @@ public class Autotest {
 	        
 	        // copy file to Picture folder
 	        Runtime.getRuntime().exec("cp " + SrcFile.getAbsolutePath() +
-	        		" " + config.picDir + awsFileName);
+	        		" " + config.fileDir() + awsFileName);
 	        
 	        // resize pic
-	        Runtime.getRuntime().exec(config.convertPath + " " + config.picDir + awsFileName + 
-	        		" -resize 50% " + config.picDir + awsFileName);
+	        Runtime.getRuntime().exec(config.convertPath + " " + config.fileDir() + awsFileName + 
+	        		" -resize 50% " + config.fileDir() + awsFileName);
 	        
 	        // upload to S3
 			Runtime.getRuntime().exec(awsPath + " s3 cp --acl public-read " 
-					+ " " + config.picDir + awsFileName
+					+ " " + config.fileDir() + awsFileName
 					+ " s3://autotest-test/" + awsFileName);
 			
 			// tag with test value
@@ -117,7 +119,7 @@ public class Autotest {
 	public void checkAssertion(ResultSet assertions) throws Exception {
 		String textInPage, pageSource;
 		WebElement body;
-		String condition = assertions.getString("condition");
+		String condition = rubyInterpolate(assertions.getString("condition"), rubyFilename()); 
     	String assertion_type = assertions.getString("assertion_type");
     	int assertion_id = Integer.parseInt(assertions.getString("id"));
     	
@@ -162,6 +164,10 @@ public class Autotest {
 		}
 	}
 	
+	public String rubyFilename() throws Exception {
+		return md5(runId + "-" + main_test_id) + ".rb";
+	}
+	
 	public void checkAssertions() throws Exception {
 		// check assertions
 		Statement selectStm = (Statement) connection.createStatement();
@@ -186,7 +192,7 @@ public class Autotest {
         
         // check assertions
         while(assertions.next()) {
-        	String webpage = assertions.getString("webpage");
+        	String webpage = rubyInterpolate(assertions.getString("webpage"), rubyFilename());
         	for (int i = 0; i< tabs.size(); i++) {
             	driver.switchTo().window((String) tabs.get(i));
             	String currentUrl = driver.getCurrentUrl();
@@ -203,6 +209,53 @@ public class Autotest {
         }
 	}
 	
+	public static String rubyInterpolate(String s, String rubyFilename) throws Exception {
+		if (!s.matches("^\".*#\\{.+\\}.*\"$")) // test Ruby interpolation format
+			return s;
+		
+		// append this string at the end of the file
+		File file = new File(config.fileDir() + rubyFilename);
+		FileWriter fw = new FileWriter(file, true);
+		BufferedWriter bw = new BufferedWriter(fw);
+		bw.write("p " + s + "\n");
+		bw.close();
+		fw.close();
+		
+		Runtime rt = Runtime.getRuntime();
+    	String[] commands = {"ruby", rubyFilename};
+    	Process proc = rt.exec(commands);
+
+    	BufferedReader stdInput = new BufferedReader(new
+    	     InputStreamReader(proc.getInputStream()));
+
+    	// read the output from the command
+    	String result = "", input;
+    	while ((input = stdInput.readLine()) != null) {
+    		result = input;
+    	}
+    	
+    	return result;
+	}
+	
+	public void initiateRubyFile(String rubyFilename, int test_id) throws Exception {
+		Runtime.getRuntime().exec("echo > " + config.fileDir() + rubyFilename);
+		Statement testParamStm = (Statement) connection.createStatement();
+		ResultSet testParams = testParamStm.executeQuery(
+				"Select * FROM test_params p WHERE p.test_id=" + test_id);
+		
+		File file = new File(config.fileDir() + rubyFilename);
+		FileWriter fw = new FileWriter(file, true);
+		BufferedWriter bw = new BufferedWriter(fw);
+		
+		while (testParams.next()) {
+			String label = testParams.getString("label");
+			String value = testParams.getString("val");
+			bw.write(label + " = \"" + value + "\"\n");
+		}
+		bw.close();
+		fw.close();
+	}
+	
 	// only take screenshot of main test
 	// before each step, run the pre-test. this only applies to main test
 	public void runSteps(int test_id) throws Exception {
@@ -210,6 +263,10 @@ public class Autotest {
 		Statement selectStm = (Statement) connection.createStatement();
 		ResultSet result = selectStm.executeQuery("Select * FROM steps s WHERE s.test_id=" 
 				+ main_test_id + " AND s.active = true");
+		
+		// initiate params file
+		String rubyFilename = rubyFilename();
+		initiateRubyFile(rubyFilename, test_id);
 		
 		while (result.next()) {
 			// run pre-test
@@ -221,13 +278,13 @@ public class Autotest {
 				while (preTests.next()) {
 					runSteps(Integer.parseInt(preTests.getString("test_id")));
 				}
-			}			
+			}
 			
 	    	int order = Integer.parseInt(result.getString("order"));
 	    	String action_type = result.getString("action_type");
-	    	String webpage = result.getString("webpage");
+	    	String webpage = rubyInterpolate(result.getString("webpage"), rubyFilename()); 
 	    	int scrollLeft, scrollTop, wait = Integer.parseInt(result.getString("wait"));
-	    	String windowId = result.getString("windowId") + "-" +result.getString("tabId");
+	    	String windowId = result.getString("windowId") + "-" + result.getString("tabId");
 	    	String selectorJSON;
 	    	
 	    	System.out.println("Step " + step_id);
@@ -274,7 +331,7 @@ public class Autotest {
 		            	jse.executeScript("scroll("+ scrollLeft +", "+ scrollTop +")");
 		            	break;
 		            case "keypress":
-		            	String typed = result.getString("typed");
+		            	String typed = rubyInterpolate(result.getString("typed"), rubyFilename());
 		            	Actions action = new Actions(driver);
 		                action.sendKeys(typed);
 		                action.perform();
@@ -284,8 +341,8 @@ public class Autotest {
 		            	JSONParser parser = new JSONParser();
 		        		JSONObject json = (JSONObject) parser.parse(selectorJSON);
 		        		String selectorType = (String) json.get("selectorType");
-		        		String selector = (String) json.get("selector");
-		        		int eq = Integer.parseInt(json.get("eq") + "");
+		        		String selector = rubyInterpolate((String) json.get("selector"), rubyFilename());
+		        		int eq = Integer.parseInt(rubyInterpolate(json.get("eq") + "", rubyFilename()));
 		        		WebElement element = null;
 		        		
 		        		try {
@@ -299,17 +356,17 @@ public class Autotest {
 				                case "tag":
 				                	element = driver.findElements(By.tagName(selector)).get(eq);
 				                	break;
-				                case "name":  
+				                case "name":
 				                	element = driver.findElements(By.name(selector)).get(eq);
 				                	break;
-				                case "partialLink": 
+				                case "partialLink":
 				                	element = driver.findElements(By.partialLinkText(selector)).get(eq);
 				                	break;
 				                case "href":
 				                	element = driver.findElements
 				                				(By.cssSelector("a[href='" + selector + "']")).get(eq);
 				                	break;
-				                case "partialHref":  
+				                case "partialHref":
 				                	element = driver.findElements
 				                				(By.cssSelector("a[href*='" + selector + "']")).get(eq);
 				                	break;
@@ -357,7 +414,36 @@ public class Autotest {
 	    		screenShot(md5(runId + "-"+ order) + ".jpg");
 	    	
 	    	prevWindowId = windowId;
+	    	
+	    	// get extracts after step completion
+	    	getExtracts(rubyFilename, step_id, order);
 	    }
+	}
+	
+	@SuppressWarnings("deprecation")
+	public void getExtracts(String rubyFilename, int step_id, int order) throws Exception {
+		File file = new File(config.fileDir() + rubyFilename);
+		FileWriter fw = new FileWriter(file, true);
+		BufferedWriter bw = new BufferedWriter(fw);
+		
+		// default extract: body_text
+		String body_text = (String) jse.executeScript
+				("return document.getElementsByTagName(\"body\")[0].textContent;").toString();
+		bw.write("body_text = \"" + StringEscapeUtils.escapeJava(body_text) + "\"\n");	
+		
+		Statement extractStm = (Statement) connection.createStatement();
+		ResultSet extracts = extractStm.executeQuery(
+				"Select * FROM extracts e WHERE e.step_id=" + step_id);
+		while (extracts.next()) {
+			String title = extracts.getString("title");
+			String command = extracts.getString("command");
+			String value = (String) jse.executeScript("return " + command);
+			
+			bw.write(title + " = \"" + StringEscapeUtils.escapeJava(value) + "\"\n");
+		}
+		
+		bw.close();
+		fw.close();
 	}
 	
 	public static String md5(String original) throws Exception {
@@ -370,34 +456,6 @@ public class Autotest {
 			sb.append(String.format("%02x", b & 0xff));
 		}
 		return sb.toString();
-	}
-	
-	public static String rubyInterpolate(String s) throws Exception {
-		if (!s.matches("^\".*#\\{.+\\}.*\"$")) // test Ruby interpolation format
-			return s;
-		
-		Runtime rt = Runtime.getRuntime();
-    	String[] commands = {"ls", "-l"};
-    	Process proc = rt.exec(commands);
-
-    	BufferedReader stdInput = new BufferedReader(new 
-    	     InputStreamReader(proc.getInputStream()));
-
-    	BufferedReader stdError = new BufferedReader(new 
-    	     InputStreamReader(proc.getErrorStream()));
-
-    	// read the output from the command
-    	String result = stdInput.readLine();
-    	System.out.println(result);
-    	
-    	// read any errors from the attempted command
-    	String e;
-    	System.out.println("Here is the standard error of the command (if any):\n");
-    	while ((e = stdError.readLine()) != null) {
-    	    System.out.println(e);
-    	}
-    	
-    	return result;
 	}
 	
  	public static void main(String[] args) throws Exception {

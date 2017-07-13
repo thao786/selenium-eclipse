@@ -1,15 +1,21 @@
 package selenium;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
- 
+
+import org.apache.commons.io.FileUtils;
 import org.openqa.selenium.By;
 import org.openqa.selenium.Dimension;
 import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.OutputType;
+import org.openqa.selenium.TakesScreenshot;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
@@ -32,18 +38,27 @@ import com.mysql.jdbc.Statement;
  
 
 public class ChromeExample  {
-    public static void getConsole(WebDriver driver) {
-        LogEntries jserrors = driver.manage().logs().get(LogType.BROWSER);
-        for (LogEntry error : jserrors) {
-            System.out.println(error.getMessage());
-        }
-    }
      
     public static void main(String[] args) throws Exception {
-    	String s = "\"hygt#{rfe}d\"";
-    	if (s.matches("^\".*#\\{.+\\}.*\"$")) {
-    	    System.out.println("yes");
-    	} else
-    		System.out.println("no");
-    }
+    	System.setProperty("webdriver.chrome.driver",
+        		"/usr/local/Cellar/chromedriver/2.29/bin/chromedriver");
+        System.setProperty("webdriver.chrome.logfile", "/Users/thao786/log");
+        DesiredCapabilities cap = DesiredCapabilities.chrome();
+         
+		// Set logging preference In Google Chrome browser capability to log
+		// browser errors.
+		LoggingPreferences pref = new LoggingPreferences();
+		pref.enable(LogType.BROWSER, Level.ALL);
+		cap.setCapability(CapabilityType.LOGGING_PREFS, pref);
+       
+        WebDriver driver = new ChromeDriver(cap);
+        JavascriptExecutor jse = (JavascriptExecutor)driver;
+        driver.get("http://guides.rubyonrails.org/");
+        System.out.println("Page title is: " + driver.getTitle());
+        
+        System.out.println("command " + 
+        		jse.executeScript("return document.getElementsByTagName(\"body\")[0].textContent;").toString());        
+               
+        driver.quit();    
+        }
 }
