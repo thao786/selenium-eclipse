@@ -244,7 +244,7 @@ public class Autotest {
 				"Select * FROM test_params p WHERE p.test_id=" + test_id);
 		
 		File file = new File(config.fileDir() + rubyFilename);
-		FileWriter fw = new FileWriter(file, true);
+		FileWriter fw = new FileWriter(file, false);
 		BufferedWriter bw = new BufferedWriter(fw);
 		
 		while (testParams.next()) {
@@ -429,7 +429,7 @@ public class Autotest {
 		// default extract: body_text
 		String body_text = (String) jse.executeScript
 				("return document.getElementsByTagName(\"body\")[0].textContent;").toString();
-		bw.write("body_text = \"" + StringEscapeUtils.escapeJava(body_text) + "\"\n");	
+		bw.write("body_text" + order + " = \"" + StringEscapeUtils.escapeJava(body_text) + "\"\n");	
 		
 		Statement extractStm = (Statement) connection.createStatement();
 		ResultSet extracts = extractStm.executeQuery(
